@@ -1,0 +1,12 @@
+.techCard {
+  transform: var(--card-transform);
+}
+
+.bounceOnce {
+  animation: bounce-once var(--bounce-duration, 0.3s) ease-out;
+}
+
+@keyframes bounce-once {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}

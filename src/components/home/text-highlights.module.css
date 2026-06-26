@@ -1,0 +1,38 @@
+.host {
+	position: relative;
+	display: inline-block;
+	isolation: isolate; /* create a new stacking context */
+	contain: layout paint; /* limit paints to avoid cross-layer repaint churn */
+}
+.dim {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.36);
+	pointer-events: none;
+	transition: opacity 300ms ease;
+}
+.rect {
+	position: absolute;
+	border-radius: 6px;
+	pointer-events: none;
+	background: transparent;
+	box-shadow: 0 6px 18px rgb(30, 65, 219);
+	transition: opacity 260ms ease, transform 260ms ease;
+	-webkit-backdrop-filter:brightness(1.5);
+	backdrop-filter: brightness(1.5);
+}
+
+.highlight {
+  background: linear-gradient(90deg, rgba(59,130,246,.25), rgba(59,130,246,.05));
+  padding: .1rem .25rem;
+  border-radius: .25rem;
+  box-shadow: 0 0 8px rgba(59,130,246,0.3);
+  transition: background 0.3s ease, opacity 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dimmed {
+  opacity: 0.3;
+  filter: blur(0.5px);
+  text-decoration: line-through;
+  transition: opacity 0.25s ease, filter 0.25s ease, text-decoration 0.25s ease;
+}

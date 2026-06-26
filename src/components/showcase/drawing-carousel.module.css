@@ -1,0 +1,168 @@
+.round:hover {
+  opacity: 1;
+  transform: translateY(-2px) scale(1.1);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  transition: box-shadow 180ms ease, transform 160ms ease;
+}
+
+.round:active {
+  transform: translateY(-1px) scale(1.05);
+  transition-duration: 0.1s;
+}
+
+.cta {
+  /* Subtle glow using currentColor via drop-shadow for theme awareness */
+  filter: drop-shadow(0 0 6px currentColor);
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  display: flex; /* Add flex for proper centering */
+}
+
+/* Arrow container for perfect centering */
+.arrow {
+  position: relative;
+  width: 16px;
+  height: 12px;
+  border: none;
+  background: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Arrow head built with box-shadow pixels - RIGHT ARROW (next) */
+.arrow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%) rotate(-45deg);
+  box-shadow:
+    2px 2px 0 currentColor,
+    3px 2px 0 currentColor,
+    2px 3px 0 currentColor,
+    3px 3px 0 currentColor;
+}
+
+/* Single trailing dot for RIGHT ARROW */
+.arrow::after {
+  content: '•';
+  position: absolute;
+  left: -2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  color: currentColor;
+  line-height: 0;
+  font-size: 14px;
+  transition: left 0.1s ease-out;
+}
+
+/* Hover effect for RIGHT ARROW dot - moves toward arrow */
+.round:hover .arrow::after,
+.round:focus-visible .arrow::after {
+  left: 2px;
+}
+
+/* LEFT ARROW (previous) variant - properly mirrored */
+.arrow.prev::before {
+  transform: translateY(-50%) rotate(135deg);
+  left: 5px;
+}
+
+.arrow.prev::after {
+  content: '•';
+  left: 12px;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Hover effect for LEFT ARROW dot - moves toward arrow (fixed distance) */
+.round:hover .arrow.prev::after,
+.round:focus-visible .arrow.prev::after {
+  left: 8px; /* Same distance as right arrow, just 2px */
+}
+
+Enhanced hover glow for theme compliance
+.round:hover .arrow::before,
+.round:focus-visible .arrow::before {
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+.round:hover .arrow::after,
+.round:focus-visible .arrow::after,
+.round:hover .arrow.prev::after,
+.round:focus-visible .arrow.prev::after {
+  filter: drop-shadow(0 0 2px currentColor);
+}
+
+/* Click animation - subtle pulse of the arrow head */
+@keyframes arrowHeadPulse {
+  0% {
+    transform: translateY(-50%) rotate(-45deg) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-50%) rotate(-45deg) scale(1.15);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-50%) rotate(-45deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Left arrow pulse animation */
+@keyframes arrowHeadPulsePrev {
+  0% {
+    transform: translateY(-50%) rotate(135deg) scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-50%) rotate(135deg) scale(1.15);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translateY(-50%) rotate(135deg) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Ensure pulse animation works for both arrow directions */
+.arrow.prev.bounceAlpha::before,
+.arrow.prev.bounceAlphaPrev::before {
+  animation: arrowHeadPulsePrev 0.35s ease-out;
+}
+
+/* Ripple effect on click */
+.cta::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.3);
+  transform: translate(-50%, -50%);
+  transition: all 0.5s ease-out;
+  opacity: 0;
+}
+
+.round:active .cta::after {
+  width: 40px;
+  height: 40px;
+  opacity: 1;
+  transition-duration: 0s;
+}
+
+/* Animation classes (attach directly on the .arrow element) */
+.arrow.bounceAlpha::before,
+.arrow.bounceAlphaPrev::before {
+  animation: arrowHeadPulse 0.35s ease-out;
+}

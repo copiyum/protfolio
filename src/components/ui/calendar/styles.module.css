@@ -1,0 +1,316 @@
+/* calendar CSS variables are defined on .outerBox */
+
+.outerBox {
+  --cell-min-h: 64px;
+  --pill-radius: 18px;
+  --duration-move: 600ms;
+  --duration-ui: 280ms;
+  --easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --easing-ui: cubic-bezier(.2,.8,.2,1);
+
+  width: 100%;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  /* ponytail: was min-height:190px — pure dead space above the panel. Let content size it. */
+  border-radius: 0px;
+  padding: 0.5rem 0.5rem 0;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--foreground), transparent 88%);
+}
+
+:global(.dark) .outerBox {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--foreground), transparent 82%);
+}
+
+/* token classes to ensure CSS Modules exports */
+.showMessage { outline: none; outline-offset: -1px; }
+.hasHover { outline: none; outline-offset: -1px; }
+.completed { outline: none; outline-offset: -1px; }
+.future { outline: none; outline-offset: -1px; }
+.today { outline: none; outline-offset: -1px; }
+
+.innerPanel {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 10px 10px 0 0;
+  padding: 0.875rem 1rem 1rem;
+  position: relative;
+  /* Ensure this panel forms its own stacking context so backdrop-filter samples within */
+  isolation: isolate;
+  transition: padding var(--duration-ui) var(--easing-ui);
+}
+
+:global(.dark) .innerPanel {
+  background: #0f0f0f;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.panelHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  color: var(--foreground);
+  margin-bottom: 0.5rem;
+}
+
+.headerLeft { font-size: 1.25rem; font-weight: 600; }
+.headerRight { font-size: 0.9rem; color: color-mix(in srgb, var(--foreground), transparent 45%); }
+
+.weekRow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: end;
+  gap: 0.25rem;
+  position: relative;
+}
+
+.dayItem {
+  text-align: center;
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cell-min-h);
+  background: none;
+  border: none;
+  cursor: pointer;
+  border-radius: 16px;
+  --glow-blur: 0px;
+  /* Ensure the day content paints above the glass overlay pill */
+  position: relative;
+  z-index: 2;
+}
+
+.dayNum { font-size: 1.1rem; line-height: 1; margin: 0; }
+.dow { font-size: 0.7rem; letter-spacing: 0.02em; color: color-mix(in srgb, var(--foreground), transparent 50%); }
+
+.glowActive .dayNum,
+.glowActive .dow { text-shadow: 0 0 var(--glow-blur) currentColor; }
+
+/* Selected pill styling */
+.selected {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  /* Simplified, more translucent glass background so content remains visible */
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid color-mix(in srgb, var(--foreground), transparent 80%);
+  color: var(--foreground);
+  border-radius: var(--pill-radius);
+  min-width: 44px;
+  padding: 8px 10px;
+  margin-inline: auto;
+  pointer-events: none;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--foreground), transparent 86%),
+    0 6px 18px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  backdrop-filter: blur(18px) saturate(1.7);
+  -webkit-backdrop-filter: blur(18px) saturate(1.7);
+  transition:
+    transform 400ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1),
+    background 300ms ease,
+    border-color 300ms ease;
+  margin-top: 0;
+}
+
+/* Fallback tuning for browsers without backdrop-filter support */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .selected { background: rgba(255, 255, 255, 0.16); }
+  :global(.dark) .selected { background: rgba(255, 255, 255, 0.10); }
+}
+
+:global(.dark) .selected {
+  /* Dark theme glass: keep very translucent so content shows through */
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 8px 32px rgba(0, 0, 0, 0.30),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.10);
+}
+
+.moving { 
+  transform: translateY(-3px) scale(1.05); 
+  box-shadow: 
+    0 0 0 1px rgba(255,255,255,0.08),
+    0 12px 40px rgba(0,0,0,0.15),
+    inset 0 1px 0 rgba(255,255,255,0.25),
+    inset 0 -1px 0 rgba(0,0,0,0.05);
+}
+
+:global(.dark) .moving {
+  box-shadow: 
+    0 0 0 1px rgba(255,255,255,0.05),
+    0 12px 40px rgba(0,0,0,0.4),
+    inset 0 1px 0 rgba(255,255,255,0.18),
+    inset 0 -1px 0 rgba(0,0,0,0.12);
+}
+
+.dayItem:hover .selected {
+  transform: translateY(-1px) scale(1.02);
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(20px) saturate(1.9);
+  -webkit-backdrop-filter: blur(20px) saturate(1.9);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--foreground), transparent 82%),
+    0 10px 28px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+}
+
+:global(.dark) .dayItem:hover .selected {
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 10px 36px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.12);
+}
+
+.selected .dayNum { color: var(--foreground); font-weight: 700; margin-bottom: 0.25rem; }
+.selected .dow { color: var(--foreground); font-weight: 600; }
+
+.today .dayNum, .today .dow { color: #8F91E0; }
+.selected.today .dayNum,
+.selected.today .dow,
+.today.selected .dayNum,
+.today.selected .dow,
+.today .selected .dayNum,
+.today .selected .dow,
+.dayItem.today .selected .dayNum,
+.dayItem.today .selected .dow { color: #8F91E0 !important; }
+
+.messageBar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  color: color-mix(in srgb, var(--foreground), transparent 0%);
+  font-size: 0.9rem;
+  line-height: 1.25rem;
+  transition: height var(--duration-ui) var(--easing-ui), opacity 200ms ease;
+}
+
+.innerPanel.showMessage .messageBar,
+.innerPanel.hasHover .messageBar { height: 1.25rem; opacity: 1; }
+
+.innerPanel.showMessage,
+.innerPanel.hasHover { padding-top: 1.6rem; }
+
+.messageRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  color: #8F91E0;
+  height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: height 220ms ease, opacity 220ms ease;
+}
+
+.innerPanel.hasHover .messageRow { height: 1.25rem; opacity: 1; }
+
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  flex: 0 0 auto;
+  border: 1px solid color-mix(in srgb, var(--foreground), transparent 60%);
+  background: transparent;
+}
+.dotFilled { background: currentColor; border-color: currentColor; }
+.dotEmpty { background: transparent; }
+
+.messageText { color: color-mix(in srgb, var(--foreground), transparent 0%); font-size: 0.9rem; }
+.todayText { color: #8F91E0 !important; }
+.glassPulse { will-change: transform, filter; }
+
+@keyframes liquidPulse {
+  0% {
+    transform: translateY(0) scale(1);
+    border-radius: 16px;
+    box-shadow: 
+      0 0 0 1px rgba(255,255,255,0.05),
+      0 8px 32px rgba(0,0,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -1px 0 rgba(0,0,0,0.05);
+    backdrop-filter: blur(20px) saturate(1.8);
+  }
+  40% {
+    transform: translateY(-4px) scale(1.08);
+    border-radius: 20px;
+    box-shadow: 
+      0 0 0 1px rgba(255,255,255,0.08),
+      0 12px 40px rgba(0,0,0,0.15),
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      inset 0 -1px 0 rgba(0,0,0,0.05);
+    backdrop-filter: blur(25px) saturate(2.0);
+  }
+  70% {
+    transform: translateY(-2px) scale(1.03);
+    border-radius: 18px;
+    box-shadow: 
+      0 0 0 1px rgba(255,255,255,0.06),
+      0 10px 36px rgba(0,0,0,0.14),
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -1px 0 rgba(0,0,0,0.05);
+    backdrop-filter: blur(22px) saturate(1.9);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    border-radius: 16px;
+    box-shadow: 
+      0 0 0 1px rgba(255,255,255,0.05),
+      0 8px 32px rgba(0,0,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.22),
+      inset 0 -1px 0 rgba(0,0,0,0.05);
+    backdrop-filter: blur(20px) saturate(1.8);
+  }
+}
+
+.glassPulse { animation: liquidPulse 600ms var(--easing-spring) both; }
+
+.selectedOverlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.overlayPill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transition: transform var(--duration-move) cubic-bezier(0.175, 0.885, 0.32, 1.1), width 200ms ease, height 200ms ease;
+  pointer-events: none;
+  z-index: 2;
+  transform-origin: center center;
+}
+
+@keyframes stretchSides {
+  0% { transform: scaleX(1); }
+  35% { transform: scaleX(1.10); }
+  70% { transform: scaleX(0.98); }
+  100% { transform: scaleX(1); }
+}
+
+.moving { animation: stretchSides var(--duration-move) var(--easing-spring); }
+
+@media (max-width: 480px) {
+  .outerBox { padding: 0.75rem; }
+  .headerRight { font-size: 0.8rem; }
+}

@@ -1,0 +1,14 @@
+.glowingText {
+  -webkit-text-stroke: 1px #8F91E0;
+  text-shadow: 0 0 6px rgba(143,145,224,0.7);
+  clip-path: inset(var(--clip-y, 50%) 0 0 0);
+}
+
+.waterFill {
+  background: linear-gradient(180deg, rgba(143,145,224,0.12) 0%, rgba(143,145,224,0.06) 30%, transparent 70%);
+}
+
+.waterLine {
+  background: #8F91E0;
+  box-shadow: 0 0 6px rgba(143,145,224,0.7);
+}
