@@ -1,0 +1,39 @@
+name: ci
+
+# Gate every PR (and pushes to main) on lint, tests, and a production build.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A newer push to the same branch/PR cancels the in-flight run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      # `next build` also runs the TypeScript type-check (it understands CSS
+      # module imports, which a bare `tsc --noEmit` does not).
+      - name: Build
+        run: npm run build

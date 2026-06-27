@@ -132,7 +132,6 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
   const message = DAILY_MESSAGES[msgDow];
 
   const isCompleted = normalizeDate(selected) < today;
-  const isFuture = normalizeDate(selected) > today;
   const selectedIsToday = sameDay(selected, today);
 
   const handleSelect = useCallback((idx: number) => {

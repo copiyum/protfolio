@@ -122,7 +122,6 @@ export default function MapWidget() {
       mapRef.current = null;
     };
     // create-once; theme is synced separately via setStyle
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Swap basemap + rebuild buildings ONLY when light/dark actually flips — no
