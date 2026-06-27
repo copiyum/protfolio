@@ -30,11 +30,13 @@ export default function TypingSimulator() {
 	const [target, setTarget] = useState<string>("");
 	const [typed, setTyped] = useState<string>("");
 	const [startedAt, setStartedAt] = useState<number | null>(null);
-	const [finished, setFinished] = useState(false);
-	const [resetting, setResetting] = useState(false);
-	const [mascotFrame, setMascotFrame] = useState(0);
-	const frameTimeout = useRef<number | null>(null);
-	const [reducedMotion, setReducedMotion] = useState(false);
+		const [finished, setFinished] = useState(false);
+		const [resetting, setResetting] = useState(false);
+		const [startLeaving, setStartLeaving] = useState(false);
+		const [mascotFrame, setMascotFrame] = useState(0);
+		const frameTimeout = useRef<number | null>(null);
+		const startTimeout = useRef<number | null>(null);
+		const [reducedMotion, setReducedMotion] = useState(false);
 
 	// reduced motion preference
 	useEffect(() => {
@@ -62,18 +64,28 @@ export default function TypingSimulator() {
 		containerRef.current?.focus({ preventScroll: true });
 	}, []);
 
-	const handleStart = () => {
-		if (ready) return;
-		let seed = Date.now();
+		const handleStart = () => {
+			if (ready || startLeaving) return;
+			let seed = Date.now();
 		try {
 			const u32 = new Uint32Array(1);
 			window.crypto.getRandomValues(u32);
 			seed = u32[0] || seed;
 		} catch {}
-		setTarget(generatePassage(seed));
-		setReady(true);
-		requestAnimationFrame(() => containerRef.current?.focus({ preventScroll: true }));
-	};
+			const nextTarget = generatePassage(seed);
+			const begin = () => {
+				setTarget(nextTarget);
+				setReady(true);
+				setStartLeaving(false);
+				requestAnimationFrame(() => containerRef.current?.focus({ preventScroll: true }));
+			};
+			if (reducedMotion) {
+				begin();
+				return;
+			}
+			setStartLeaving(true);
+			startTimeout.current = window.setTimeout(begin, 180);
+		};
 
 	const pulseMascot = () => {
 		if (reducedMotion) return;
@@ -132,9 +144,10 @@ export default function TypingSimulator() {
 
 	useEffect(() => {
 		return () => {
-			if (frameTimeout.current) window.clearTimeout(frameTimeout.current);
-		};
-	}, []);
+				if (frameTimeout.current) window.clearTimeout(frameTimeout.current);
+				if (startTimeout.current) window.clearTimeout(startTimeout.current);
+			};
+		}, []);
 
 	const { moveCaretTo } = useFloatingCaret(reducedMotion);
 
@@ -222,7 +235,7 @@ export default function TypingSimulator() {
 	}, [typed.length, target, ready]);
 
 	return (
-		<div className="group relative w-full rounded-none border border-[color:var(--foreground)]/10 bg-transparent p-3">
+		<div className="group relative w-full rounded-2xl border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.018] p-4 shadow-[0_18px_60px_rgba(0,0,0,0.10)]">
 			<div
 				ref={containerRef}
 				className={[styles.root, finished ? styles.finishedState : ""].join(" ")}
@@ -234,7 +247,7 @@ export default function TypingSimulator() {
 				<Mascot frameSrc={MASCOT_FRAMES[mascotFrame]} />
 				<HUD wpm={wpm} accuracy={accuracy} />
 				<div className={styles.surface}>
-					{!ready && (<StartOverlay onStart={handleStart} />)}
+						{!ready && (<StartOverlay onStart={handleStart} leaving={startLeaving} />)}
 					{ready && (
 						<div
 							className={[

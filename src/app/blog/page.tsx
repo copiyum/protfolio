@@ -47,7 +47,7 @@ export default function BlogPage() {
               <Link
                 key={p.slug}
                 href={`/blog/${p.slug}`}
-                className="group flex gap-4 px-4 py-4 transition-colors hover:bg-[color:var(--foreground)]/[0.03]"
+                className="group flex gap-4 px-4 py-4 transition-colors hover:bg-[color:var(--accent)]/[0.05]"
               >
                 <div
                   className="hidden h-16 w-24 shrink-0 rounded-sm sm:block"

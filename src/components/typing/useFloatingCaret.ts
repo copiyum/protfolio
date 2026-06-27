@@ -24,7 +24,7 @@ export function useFloatingCaret(reducedMotion: boolean) {
     if (ghost) {
       const caretCurTransform = caret.style.transform || `translate3d(${prev.x}px, ${prev.y}px, 0)`;
       const caretCurWidth = caret.style.width || `${Math.max(1, prev.w)}px`;
-      ghost.style.transition = duration ? `transform ${duration}ms cubic-bezier(.2,.7,.3,1), width ${duration}ms cubic-bezier(.2,.7,.3,1), opacity ${Math.max(300, duration)}ms ease` : "none";
+      ghost.style.transition = duration ? `transform ${duration}ms var(--ease-standard), width ${duration}ms var(--ease-standard), opacity ${Math.max(300, duration)}ms var(--ease-standard)` : "none";
       ghost.style.transform = caretCurTransform;
       ghost.style.width = caretCurWidth;
       ghost.style.opacity = "0.62";
@@ -36,7 +36,7 @@ export function useFloatingCaret(reducedMotion: boolean) {
       const startX = Math.min(prev.x, x);
       const endX = Math.max(prev.x + prev.w, x + w);
       const spanWidth = Math.max(1, endX - startX);
-      ghostConnector.style.transition = duration ? `transform ${duration}ms cubic-bezier(.2,.7,.3,1), width ${duration}ms cubic-bezier(.2,.7,.3,1), opacity ${Math.max(300, duration)}ms ease` : "none";
+      ghostConnector.style.transition = duration ? `transform ${duration}ms var(--ease-standard), width ${duration}ms var(--ease-standard), opacity ${Math.max(300, duration)}ms var(--ease-standard)` : "none";
       ghostConnector.style.transform = `translate3d(${startX}px, ${y}px, 0)`;
       ghostConnector.style.width = `${spanWidth}px`;
       ghostConnector.style.opacity = "0.42";

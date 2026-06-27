@@ -1,16 +1,18 @@
 "use client";
 import { useState } from "react";
 import Image from "next/image";
-import { ChevronUpDownIcon, CubeIcon, LinkIcon } from "@heroicons/react/24/outline";
+import { CubeIcon, LinkIcon } from "@heroicons/react/24/outline";
 import type { Project } from "@/data/projects";
+import ExpandIcon from "@/components/ui/expand-icon";
 
 export default function ProjectItem({ project }: { project: Project }) {
   const [open, setOpen] = useState(!!project.isExpanded);
   const { start, end } = project.period;
   const isOngoing = !end;
   const isSingle = end === start;
+  const hasBody = !!project.description || project.skills.length > 0;
 
-  const toggle = () => setOpen((v) => !v);
+  const toggle = () => { if (hasBody) setOpen((v) => !v); };
 
   return (
     <div className="group/project">
@@ -24,18 +26,12 @@ export default function ProjectItem({ project }: { project: Project }) {
         )}
 
         <div className="flex-1 border-l border-dashed border-[color:var(--foreground)]/15">
-          <div
-            role="button"
-            tabIndex={0}
-            aria-expanded={open}
+          <button
+            type="button"
+            disabled={!hasBody}
+            aria-expanded={hasBody ? open : undefined}
             onClick={toggle}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                toggle();
-              }
-            }}
-            className="flex w-full cursor-pointer items-center gap-2 p-4 pr-2 text-left select-none"
+            className="flex w-full cursor-pointer items-center gap-2 p-4 pr-2 text-left select-none disabled:cursor-default"
           >
             <div className="flex-1">
               <h3 className="mb-1 text-pretty font-medium leading-snug">{project.title}</h3>
@@ -65,14 +61,16 @@ export default function ProjectItem({ project }: { project: Project }) {
               </a>
             )}
 
-            <span className="shrink-0 text-[color:var(--foreground)]/40">
-              <ChevronUpDownIcon className="size-4" />
-            </span>
-          </div>
+            {hasBody && (
+              <span className="shrink-0 text-[color:var(--foreground)]/40">
+                <ExpandIcon open={open} />
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
-      <div className={`grid transition-all duration-[var(--dur-enter)] ease-[var(--ease-out)] ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+      <div className={`grid transition-[grid-template-rows] duration-[var(--motion-panel)] ease-[var(--ease-standard)] ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden">
           <div className="space-y-4 border-t border-[color:var(--foreground)]/10 p-4">
             {project.description && (

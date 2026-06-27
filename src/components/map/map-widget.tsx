@@ -5,7 +5,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "next-themes";
 import styles from "./map-widget.module.css";
 import Image from "next/image";
-import useISTClock from "@/hooks/use-ist-clock";
+import useReducedMotion from "@/hooks/use-reduced-motion";
 
 // Map placement/tuning — single-use, so it lives with its only consumer.
 const KOCHI: [number, number] = [76.2673, 9.9312];
@@ -82,8 +82,8 @@ export default function MapWidget() {
   // The dark-ness currently applied to the map's style; lets us skip redundant
   // setStyle calls (e.g. next-themes settling undefined → "system", both light).
   const appliedDark = useRef<boolean | null>(null);
-  const { time, userOffset } = useISTClock();
   const { resolvedTheme } = useTheme();
+  const reducedMotion = useReducedMotion();
   const [hovering, setHovering] = useState(false);
 
   // Create the map exactly once. Theme changes are handled by setStyle below,
@@ -113,7 +113,12 @@ export default function MapWidget() {
 
     map.on("load", () => {
       map.setProjection({ type: "globe" });
-      map.flyTo({ center: KOCHI, zoom: ZOOM_FLY, essential: true, speed: FLY_SPEED });
+      const shouldReduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (shouldReduce) {
+        map.jumpTo({ center: KOCHI, zoom: ZOOM_FLY, pitch: PITCH, bearing: BEARING });
+      } else {
+        map.flyTo({ center: KOCHI, zoom: ZOOM_FLY, essential: true, speed: FLY_SPEED });
+      }
       addBuildings(map, isDark);
     });
 
@@ -144,22 +149,10 @@ export default function MapWidget() {
     <div
       className={`${styles.container} ${hovering ? 'hovering' : ''}`}
       data-theme={resolvedTheme}
+      data-reduced-motion={reducedMotion ? "true" : undefined}
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      <div
-        className={`${styles.clock} group relative`}
-      >
-        <div className="relative" suppressHydrationWarning>
-          {time} IST
-          <div
-            className="absolute left-0 top-full mt-1 opacity-0 group-hover:opacity-100 transition-opacity text-xs rounded px-2 py-1 whitespace-nowrap pointer-events-none"
-            style={{ background: 'var(--tooltip-bg, rgba(0,0,0,0.8))', color: 'var(--tooltip-fg, #fff)' }}
-          >
-            {userOffset === 0 ? "Same as your timezone" : `${Math.abs(userOffset)}h ${userOffset > 0 ? "ahead of" : "behind"} you`}
-          </div>
-        </div>
-      </div>
       <div ref={ref} className={styles.map} />
       <div className={styles.overlay}>
         <div className={styles.planeTrack}>

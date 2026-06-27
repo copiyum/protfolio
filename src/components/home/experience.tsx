@@ -4,29 +4,7 @@ import Image from "next/image";
 import { CodeBracketIcon } from "@heroicons/react/24/outline";
 import { experiences, type Experience as ExperienceType, type ExperiencePosition } from "@/data/experience";
 import { formatDuration } from "@/lib/period";
-
-// Double chevron whose arrows flip direction on open/close (chanhdai's cue):
-// collapsed = pointing outward (⌃⌄), open = pointing inward (⌄⌃). Each caret
-// rotates 180° about its own center.
-function ExpandIcon({ open }: { open: boolean }) {
-  const caret = (d: string) => (
-    <path
-      d={d}
-      style={{
-        transformBox: "fill-box",
-        transformOrigin: "center",
-        transition: "transform .2s ease",
-        transform: open ? "rotate(180deg)" : "none",
-      }}
-    />
-  );
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-4" aria-hidden>
-      {caret("M7 10 L12 6 L17 10")}
-      {caret("M7 14 L12 18 L17 14")}
-    </svg>
-  );
-}
+import ExpandIcon from "@/components/ui/expand-icon";
 
 export default function Experience() {
   return (
@@ -67,12 +45,6 @@ function ExperienceItem({ experience }: { experience: ExperienceType }) {
           )}
         </h3>
 
-        {experience.isCurrentEmployer && (
-          <span className="relative flex items-center justify-center" aria-label="Current employer">
-            <span className="absolute inline-flex size-3 animate-ping rounded-full bg-[color:var(--accent)] opacity-50" />
-            <span className="relative inline-flex size-2 rounded-full bg-[color:var(--accent)]" />
-          </span>
-        )}
       </div>
 
       <div className="relative space-y-4">
@@ -150,7 +122,7 @@ function PositionItem({ position }: { position: ExperiencePosition }) {
       </button>
 
       {hasBody && (
-        <div className={`grid transition-all duration-[var(--dur-enter)] ease-[var(--ease-out)] ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className={`grid transition-[grid-template-rows] duration-[var(--motion-panel)] ease-[var(--ease-standard)] ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
           <div className="overflow-hidden">
             <p className="pt-2 pl-9 text-[13px] leading-relaxed text-[color:var(--foreground)]/65">{position.description}</p>
           </div>

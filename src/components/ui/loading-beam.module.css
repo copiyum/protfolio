@@ -7,7 +7,9 @@
   justify-content: center;
   z-index: 100;
   /* smooth fade-out, not a 0.1s hard cut */
-  transition: opacity 0.45s var(--ease-out, ease), visibility 0.45s var(--ease-out, ease);
+  transition:
+    opacity var(--motion-section) var(--ease-standard),
+    visibility var(--motion-section) var(--ease-standard);
 }
 
 .fullscreen.hidden {
@@ -30,13 +32,14 @@
   border-radius: 9999px;
   /* in-theme accent gradient, steady soft glow — no flicker */
   background: linear-gradient(90deg, color-mix(in srgb, var(--accent, #8f91e0) 65%, #ffffff), var(--accent, #8f91e0));
-  width: 0%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
   box-shadow: 0 0 12px 1px color-mix(in srgb, var(--accent, #8f91e0) 45%, transparent);
-  animation: beam-fill 1.3s var(--ease-out, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
+  animation: beam-fill 1.3s var(--ease-standard) forwards;
 }
 
 /* single smooth fill — fast then settling, no lumpy mid-steps */
 @keyframes beam-fill {
-  from { width: 0%; }
-  to { width: 100%; }
+  to { transform: scaleX(1); }
 }

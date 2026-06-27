@@ -4,9 +4,17 @@
   /* Motion language — one set of curves/durations the whole site shares */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-inout: cubic-bezier(0.76, 0, 0.24, 1);
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-productive: cubic-bezier(0.32, 0.72, 0, 1);
   --dur-micro: 140ms;
   --dur-enter: 480ms;
   --dur-hero: 600ms;
+  --motion-micro: 140ms;
+  --motion-state: 220ms;
+  --motion-panel: 360ms;
+  --motion-section: 480ms;
+  --motion-hero: 600ms;
   --accent: #8f91e0;
 
   --background: #ffffff;
@@ -54,54 +62,6 @@ body { background: var(--page-bg); color: var(--foreground); }
 
 * { outline-color: #3b82f6; }
 
-/* Tech stack rotating border animation */
-@keyframes rotate-border {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-rotate-border {
-  animation: rotate-border 3s linear infinite;
-}
-
-/* rotating highlight used for subtle glowing border on hover */
-@keyframes rotating-highlight {
-  0% {
-    transform: translate(-50%, -50%) rotate(45deg);
-  }
-  50% {
-    transform: translate(-50%, -50%) rotate(225deg);
-  }
-  100% {
-    transform: translate(-50%, -50%) rotate(405deg);
-  }
-}
-
-.animate-rotating-highlight {
-  animation: rotating-highlight 3s linear infinite;
-}
-
-/* Single bounce animation for tech stack icons */
-@keyframes bounce-once {
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0);
-  }
-  40% {
-    transform: translateY(-10px);
-  }
-  60% {
-    transform: translateY(-5px);
-  }
-}
-
-.animate-bounce-once {
-  animation: bounce-once 0.6s ease-in-out;
-}
-
 /* Border-only halo effect for tech cards */
 .tech-card-wrapper {
   position: relative;
@@ -136,14 +96,14 @@ body { background: var(--page-bg); color: var(--foreground); }
 
   filter: blur(12px); /* softer glow effect */
   opacity: 0;
-  transition: opacity 0.3s ease;
+  transition: opacity var(--motion-state) var(--ease-standard);
   pointer-events: none;
   z-index: 2;
 }
 
 .tech-card-wrapper:hover::before {
   opacity: 1;
-  animation: diagonal-sweep 2s ease-out infinite alternate;
+  animation: diagonal-sweep 1.8s var(--ease-standard) infinite alternate;
 }
 
 @keyframes diagonal-sweep {
@@ -166,13 +126,34 @@ body { background: var(--page-bg); color: var(--foreground); }
 /* Scroll/entrance reveal — used by <Reveal> */
 .reveal {
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity var(--dur-enter) var(--ease-out), transform var(--dur-enter) var(--ease-out);
-  will-change: opacity, transform;
+  transform: translateY(16px);
+  transition:
+    opacity var(--motion-section) var(--ease-standard),
+    transform var(--motion-section) var(--ease-standard),
+    filter var(--motion-section) var(--ease-standard);
+  filter: blur(2px);
 }
 .reveal-in {
   opacity: 1;
   transform: none;
+  filter: blur(0);
+}
+
+@keyframes motion-presence-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+.motion-presence-enter {
+  animation: motion-presence-in var(--motion-panel) var(--ease-standard) both;
 }
 
 /* Animated underline for nav links */
@@ -189,7 +170,7 @@ body { background: var(--page-bg); color: var(--foreground); }
   background: currentColor;
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform var(--dur-micro) var(--ease-out);
+  transition: transform var(--motion-micro) var(--ease-standard);
 }
 .nav-link:hover::after {
   transform: scaleX(1);
@@ -199,28 +180,41 @@ body { background: var(--page-bg); color: var(--foreground); }
    no JS timer. Full cycle ~36s, matching the old 100ms×360 interval. */
 .gradient-backdrop {
   background: radial-gradient(2000px 600px at 50% 0%, hsla(220, 80%, 60%, 0.15), transparent 70%);
-  animation: hue-cycle 36s linear infinite;
+  animation: hue-cycle 52s linear infinite;
 }
 @keyframes hue-cycle {
   to { filter: hue-rotate(360deg); }
 }
 
-/* Paper-plane "beat" — replaces FontAwesome's fa-beat */
-@keyframes beat {
-  0%, 90%, 100% { transform: scale(1); }
-  45% { transform: scale(1.18); }
+/* Equalizer bars for Now Playing */
+@keyframes eq-bar {
+  from { transform: scaleY(0.22); opacity: 0.72; }
+  to   { transform: scaleY(1); opacity: 1; }
 }
-.animate-beat { animation: beat 1s ease-in-out infinite; }
+
+/* Text selection accent tint */
+::selection { background: rgba(143, 145, 224, 0.25); }
 
 /* Respect user's reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
+  html:focus-within {
+    scroll-behavior: auto !important;
+  }
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
   }
   .reveal {
     opacity: 1 !important;
     transform: none !important;
+    filter: none !important;
+  }
+  .gradient-backdrop {
+    animation: none !important;
+  }
+  .motion-presence-enter {
+    animation: none !important;
   }
 }

@@ -13,15 +13,16 @@
   display: flex;
   align-items: flex-end;
   /* ponytail: was min-height:190px — pure dead space above the panel. Let content size it. */
-  border-radius: 0px;
-  padding: 0.5rem 0.5rem 0;
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--foreground), transparent 88%);
+  border-radius: 24px;
+  padding: 0.75rem;
+  background: color-mix(in srgb, var(--foreground), transparent 98.2%);
+  border: 1px solid color-mix(in srgb, var(--foreground), transparent 92%);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.10);
 }
 
 :global(.dark) .outerBox {
-  background: transparent;
-  border-color: color-mix(in srgb, var(--foreground), transparent 82%);
+  background: color-mix(in srgb, var(--foreground), transparent 98.2%);
+  border-color: color-mix(in srgb, var(--foreground), transparent 92%);
 }
 
 /* token classes to ensure CSS Modules exports */
@@ -35,7 +36,7 @@
   width: 100%;
   background: #ffffff;
   border: 1px solid rgba(0,0,0,0.08);
-  border-radius: 10px 10px 0 0;
+  border-radius: 18px;
   padding: 0.875rem 1rem 1rem;
   position: relative;
   /* Ensure this panel forms its own stacking context so backdrop-filter samples within */
@@ -140,7 +141,7 @@
     inset 0 -1px 0 rgba(0, 0, 0, 0.10);
 }
 
-.moving { 
+.moving {
   transform: translateY(-3px) scale(1.05); 
   box-shadow: 
     0 0 0 1px rgba(255,255,255,0.08),
@@ -237,53 +238,6 @@
 
 .messageText { color: color-mix(in srgb, var(--foreground), transparent 0%); font-size: 0.9rem; }
 .todayText { color: #8F91E0 !important; }
-.glassPulse { will-change: transform, filter; }
-
-@keyframes liquidPulse {
-  0% {
-    transform: translateY(0) scale(1);
-    border-radius: 16px;
-    box-shadow: 
-      0 0 0 1px rgba(255,255,255,0.05),
-      0 8px 32px rgba(0,0,0,0.12),
-      inset 0 1px 0 rgba(255,255,255,0.22),
-      inset 0 -1px 0 rgba(0,0,0,0.05);
-    backdrop-filter: blur(20px) saturate(1.8);
-  }
-  40% {
-    transform: translateY(-4px) scale(1.08);
-    border-radius: 20px;
-    box-shadow: 
-      0 0 0 1px rgba(255,255,255,0.08),
-      0 12px 40px rgba(0,0,0,0.15),
-      inset 0 1px 0 rgba(255,255,255,0.25),
-      inset 0 -1px 0 rgba(0,0,0,0.05);
-    backdrop-filter: blur(25px) saturate(2.0);
-  }
-  70% {
-    transform: translateY(-2px) scale(1.03);
-    border-radius: 18px;
-    box-shadow: 
-      0 0 0 1px rgba(255,255,255,0.06),
-      0 10px 36px rgba(0,0,0,0.14),
-      inset 0 1px 0 rgba(255,255,255,0.22),
-      inset 0 -1px 0 rgba(0,0,0,0.05);
-    backdrop-filter: blur(22px) saturate(1.9);
-  }
-  100% {
-    transform: translateY(0) scale(1);
-    border-radius: 16px;
-    box-shadow: 
-      0 0 0 1px rgba(255,255,255,0.05),
-      0 8px 32px rgba(0,0,0,0.12),
-      inset 0 1px 0 rgba(255,255,255,0.22),
-      inset 0 -1px 0 rgba(0,0,0,0.05);
-    backdrop-filter: blur(20px) saturate(1.8);
-  }
-}
-
-.glassPulse { animation: liquidPulse 600ms var(--easing-spring) both; }
-
 .selectedOverlay {
   position: absolute;
   inset: 0;
@@ -309,6 +263,19 @@
 }
 
 .moving { animation: stretchSides var(--duration-move) var(--easing-spring); }
+
+@media (prefers-reduced-motion: reduce) {
+  .messageBar,
+  .messageRow,
+  .overlayPill,
+  .selected {
+    transition: none;
+  }
+
+  .moving {
+    animation: none;
+  }
+}
 
 @media (max-width: 480px) {
   .outerBox { padding: 0.75rem; }

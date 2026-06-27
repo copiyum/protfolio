@@ -5,8 +5,10 @@ import styles from './styles.module.css';
 import { DAILY_MESSAGES, DOW } from './constants';
 import { addDays, dateKeyLocal, normalizeDate, sameDay, startOfWeek, setupResizeObserver } from './helpers';
 import type { CalendarProps } from './types';
+import useReducedMotion from '@/hooks/use-reduced-motion';
 
 export default function Calendar({ selectedDate = new Date(), className = '', value, onChange }: CalendarProps) {
+  const reducedMotion = useReducedMotion();
   const controlled = value instanceof Date;
   const baseDate = controlled ? value! : selectedDate;
 
@@ -48,12 +50,16 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
     const btn = itemRefs.current[idx];
     const content = contentRefs.current[idx];
     if (!pill || !btn || !content) return;
+    if (reducedMotion) {
+      btn.style.setProperty('--glow-blur', '0px');
+      return;
+    }
     const pillRect = pill.getBoundingClientRect();
     const contentRect = content.getBoundingClientRect();
     const ratio = computeOverlapRatio(pillRect, contentRect);
     const blur = 2 + ratio * 12; // px
     btn.style.setProperty('--glow-blur', `${blur.toFixed(2)}px`);
-  }, [computeOverlapRatio, selectedIdx]);
+  }, [computeOverlapRatio, reducedMotion, selectedIdx]);
 
   const positionOverlayToIndex = useCallback((idx: number) => {
     const btnEl = itemRefs.current[idx];
@@ -90,18 +96,24 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
       positionOverlayToIndex(selectedIdx);
     }
     setReady(true);
-    requestAnimationFrame(updateGlow);
+    if (reducedMotion) updateGlow();
+    else requestAnimationFrame(updateGlow);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reducedMotion]);
 
   // Reposition overlay on selection changes
   useLayoutEffect(() => {
+    if (reducedMotion) {
+      positionOverlayToIndex(selectedIdx);
+      updateGlow();
+      return;
+    }
     const id = requestAnimationFrame(() => {
       positionOverlayToIndex(selectedIdx);
       updateGlow();
     });
     return () => cancelAnimationFrame(id);
-  }, [positionOverlayToIndex, selectedIdx, updateGlow]);
+  }, [positionOverlayToIndex, reducedMotion, selectedIdx, updateGlow]);
 
   // Observe container resize for layout changes
   useEffect(() => {
@@ -115,13 +127,13 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
       updateGlow();
       raf = requestAnimationFrame(tick);
     };
-    if (moving) {
+    if (moving && !reducedMotion) {
       raf = requestAnimationFrame(tick);
     } else {
       updateGlow();
     }
     return () => cancelAnimationFrame(raf);
-  }, [moving, selectedIdx, updateGlow]);
+  }, [moving, reducedMotion, selectedIdx, updateGlow]);
 
   // Panel hover to reveal message
   const [panelHover, setPanelHover] = useState(false);
@@ -134,24 +146,24 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
   const isCompleted = normalizeDate(selected) < today;
   const selectedIsToday = sameDay(selected, today);
 
-  const handleSelect = useCallback((idx: number) => {
-    setMoving(true);
+  const handleSelect = useCallback((idx: number, animate = true) => {
+    setMoving(animate && !reducedMotion);
     setSelectedIdx(idx);
     const prev = itemRefs.current[prevSelectedRef.current];
     if (prev) prev.style.setProperty('--glow-blur', '0px');
     prevSelectedRef.current = idx;
     if (onChange) onChange(days[idx]);
-  }, [days, onChange]);
+  }, [days, onChange, reducedMotion]);
 
   // keyboard navigation: arrows + home/end
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     const key = e.key;
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(key)) return;
     e.preventDefault();
-    if (key === 'ArrowLeft') handleSelect(Math.max(0, selectedIdx - 1));
-    if (key === 'ArrowRight') handleSelect(Math.min(days.length - 1, selectedIdx + 1));
-    if (key === 'Home') handleSelect(0);
-    if (key === 'End') handleSelect(days.length - 1);
+    if (key === 'ArrowLeft') handleSelect(Math.max(0, selectedIdx - 1), false);
+    if (key === 'ArrowRight') handleSelect(Math.min(days.length - 1, selectedIdx + 1), false);
+    if (key === 'Home') handleSelect(0, false);
+    if (key === 'End') handleSelect(days.length - 1, false);
   }, [days.length, handleSelect, selectedIdx]);
 
   return (

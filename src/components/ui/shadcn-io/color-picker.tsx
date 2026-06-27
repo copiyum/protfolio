@@ -51,7 +51,7 @@ export function SimpleColorPicker({ className, value = "#000000", onChange }: Si
       </div>
 
       {showCustom ? (
-        <div className="flex items-center gap-2">
+        <div key="custom" className="motion-presence-enter flex items-center gap-2">
           <input
             type="color"
             value={customColor}
@@ -67,7 +67,7 @@ export function SimpleColorPicker({ className, value = "#000000", onChange }: Si
           />
         </div>
       ) : (
-        <div className="grid grid-cols-10 gap-1.5">
+        <div key="presets" className="motion-presence-enter grid grid-cols-10 gap-1.5">
           {PRESET_COLORS.map((color) => (
             <button
               key={color}

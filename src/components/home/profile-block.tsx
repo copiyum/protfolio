@@ -130,7 +130,7 @@ export default function ProfileBlock({ onActiveChange }: ProfileBlockProps) {
           <span className="relative flex items-center" style={{ width: 12, height: 12 }}>
             <span className={`${styles.dot} ${innerHovered ? 'hidden' : ''}`} aria-hidden />
             <span className={`${innerHovered ? 'inline-flex' : 'hidden'} items-center justify-center absolute inset-0`} aria-hidden>
-              <PaperAirplaneIcon className="h-3 w-3 animate-beat text-[color:var(--foreground)]/80" />
+              <PaperAirplaneIcon className="h-3 w-3 text-[color:var(--foreground)]/80" />
             </span>
           </span>
           {/* 36px tall viewport; each row also 36px to avoid partial overflow */}
@@ -138,10 +138,10 @@ export default function ProfileBlock({ onActiveChange }: ProfileBlockProps) {
                 onMouseEnter={() => setInnerHovered(true)}
                 onMouseLeave={() => setInnerHovered(false)}
           >
-            <span
-              className={
-                `flex flex-col will-change-transform transition-transform duration-700 ease-[cubic-bezier(.25,.8,.25,1)] ${innerHovered ? '-translate-y-full' : ''}`
-              }
+	            <span
+	              className={
+	                `flex flex-col transition-transform duration-[var(--motion-panel)] ease-[var(--ease-standard)] ${innerHovered ? '-translate-y-full' : ''}`
+	              }
               style={{ lineHeight: "36px" }}
             >
               {/* Row 1: exactly 36px tall, centered content */}

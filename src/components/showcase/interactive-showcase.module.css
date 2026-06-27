@@ -12,3 +12,63 @@
   background: #8F91E0;
   box-shadow: 0 0 6px rgba(143,145,224,0.7);
 }
+
+.cornerAccents {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--motion-state) var(--ease-standard);
+}
+
+:global(.group:hover) .cornerAccents {
+  opacity: 1;
+}
+
+.cornerAccent {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-color: #818cf8;
+  filter: drop-shadow(0 0 5px rgba(129, 140, 248, 0.7));
+}
+
+.topLeft {
+  top: 4px;
+  left: 4px;
+  border-top: 3px solid;
+  border-left: 3px solid;
+  border-top-left-radius: 14px;
+}
+
+.topRight {
+  top: 4px;
+  right: 4px;
+  border-top: 3px solid;
+  border-right: 3px solid;
+  border-top-right-radius: 14px;
+}
+
+.bottomLeft {
+  bottom: 4px;
+  left: 4px;
+  border-bottom: 3px solid;
+  border-left: 3px solid;
+  border-bottom-left-radius: 14px;
+}
+
+.bottomRight {
+  right: 4px;
+  bottom: 4px;
+  border-right: 3px solid;
+  border-bottom: 3px solid;
+  border-bottom-right-radius: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cornerAccents {
+    transition: none;
+  }
+}

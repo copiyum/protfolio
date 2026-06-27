@@ -59,7 +59,7 @@
 	mix-blend-mode: normal;
 }
 .hint { font-size: 0.72rem; color: var(--foreground); opacity: 0.65; font-family: var(--font-geist-mono, ui-monospace, Menlo, monospace); }
-@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
+	@media (prefers-reduced-motion: reduce) { .caret { animation: none; } }
 .finished { animation: line-fade 400ms ease-in forwards; }
 .dissolve .char { animation: char-dissolve 420ms ease-in forwards; animation-delay: calc(var(--i) * 3ms); }
 @keyframes line-fade { 0% { opacity:1; transform:translateY(0) scale(1); filter:none;} 100% { opacity:0; transform:translateY(-6px) scale(.98); filter:blur(2px);} }
@@ -70,13 +70,15 @@
 .resultRow { display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:0.25rem 0; }
 .resultHint { margin-top:0.35rem; opacity:.65; font-size:.8rem; text-align:center; }
 @keyframes result-slide { to { transform:translateY(0); opacity:1; } }
-.finishedState .mascotWrap, .finishedState .hud, .finishedState .footer { transform:translateY(-18px) scale(0.9); opacity:0; transition: transform 360ms ease, opacity 360ms ease; }
+.finishedState .mascotWrap, .finishedState .hud, .finishedState .footer { transform:translateY(-18px) scale(0.9); opacity:0; transition: transform var(--motion-panel) var(--ease-standard), opacity var(--motion-panel) var(--ease-standard); }
 .space { background:transparent; }
-.disclaimerWrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-.disclaimerBox { pointer-events:auto; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:color-mix(in srgb, var(--background) 88%, transparent); color:var(--foreground); padding:16px 18px; box-shadow:0 6px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.08); transition:transform 160ms ease, box-shadow 200ms ease, border-color 200ms ease; }
-.disclaimerBox:hover { transform:translateY(-1px); box-shadow:0 8px 32px rgba(0,0,0,0.12); border-color:rgba(0,0,0,0.12); }
+	.disclaimerWrap { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+	.disclaimerBox { pointer-events:auto; border-radius:12px; border:1px solid rgba(0,0,0,0.08); background:color-mix(in srgb, var(--background) 88%, transparent); color:var(--foreground); padding:16px 18px; box-shadow:0 6px 24px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.08); animation:start-overlay-in var(--motion-panel) var(--ease-standard) both; transition:transform var(--motion-state) var(--ease-standard), opacity var(--motion-state) var(--ease-standard), filter var(--motion-state) var(--ease-standard), box-shadow var(--motion-state) var(--ease-standard), border-color var(--motion-state) var(--ease-standard); }
+	.disclaimerWrapLeaving .disclaimerBox { opacity:0; transform:translateY(-6px) scale(.985); filter:blur(4px); }
+	.disclaimerBox:hover { transform:translateY(-1px); box-shadow:0 8px 32px rgba(0,0,0,0.12); border-color:rgba(0,0,0,0.12); }
 .disclaimerTitle { font-weight:600; font-size:14px; }
 .disclaimerSub { opacity:.7; font-size:12px; margin-top:6px; }
-:global(.dark) .disclaimerBox { border-color:rgba(255,255,255,0.12); background:color-mix(in srgb, var(--background) 80%, transparent); box-shadow:0 6px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06); }
-:global(.dark) .disclaimerBox:hover { border-color:rgba(255,255,255,0.18); }
-
+	:global(.dark) .disclaimerBox { border-color:rgba(255,255,255,0.12); background:color-mix(in srgb, var(--background) 80%, transparent); box-shadow:0 6px 24px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06); }
+	:global(.dark) .disclaimerBox:hover { border-color:rgba(255,255,255,0.18); }
+	@keyframes start-overlay-in { from { opacity:0; transform:translateY(6px) scale(.985); filter:blur(4px); } to { opacity:1; transform:translateY(0) scale(1); filter:blur(0); } }
+	@media (prefers-reduced-motion: reduce) { .disclaimerBox { animation:none; transition:none; } .disclaimerWrapLeaving .disclaimerBox { opacity:1; transform:none; filter:none; } }

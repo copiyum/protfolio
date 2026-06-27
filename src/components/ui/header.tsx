@@ -40,10 +40,10 @@ export default function Header() {
               {mounted && (
                 <>
                   <SunIcon
-                    className={`absolute inset-0 h-6 w-6 text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-950 dark:group-hover:text-neutral-50 transition-all duration-300 ease-[cubic-bezier(.76,0,.24,1)] group-hover:[filter:drop-shadow(0px_0px_4px_rgba(250,250,250,0.9))] ${isDark ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50"}`}
+                    className={`absolute inset-0 h-6 w-6 text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-950 dark:group-hover:text-neutral-50 transition-[opacity,transform,color,filter] duration-[var(--motion-state)] ease-[var(--ease-productive)] group-hover:[filter:drop-shadow(0px_0px_4px_rgba(250,250,250,0.9))] ${isDark ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50"}`}
                   />
                   <MoonIcon
-                    className={`absolute inset-0 h-6 w-6 text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-950 dark:group-hover:text-neutral-50 transition-all duration-300 ease-[cubic-bezier(.76,0,.24,1)] group-hover:[filter:drop-shadow(0px_0px_4px_rgba(10,10,10,0.5))] ${isDark ? "opacity-0 rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"}`}
+                    className={`absolute inset-0 h-6 w-6 text-neutral-600 dark:text-neutral-400 group-hover:text-neutral-950 dark:group-hover:text-neutral-50 transition-[opacity,transform,color,filter] duration-[var(--motion-state)] ease-[var(--ease-productive)] group-hover:[filter:drop-shadow(0px_0px_4px_rgba(10,10,10,0.5))] ${isDark ? "opacity-0 rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"}`}
                   />
                 </>
               )}

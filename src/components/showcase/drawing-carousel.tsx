@@ -1,7 +1,8 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import styles from "./drawing-carousel.module.css";
+import useReducedMotion from "@/hooks/use-reduced-motion";
 
 const CAROUSEL_INTERVAL = 3500; // ms — autoplay cadence
 
@@ -12,13 +13,37 @@ const images: { src: string; artist?: string }[] = [
 ];
 
 export default function DrawingCarousel({ className = "" }: { className?: string }) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const [index, setIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [inView, setInView] = useState(true);
+  const [pageVisible, setPageVisible] = useState(true);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => {
+    const node = rootRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setInView(entry.isIntersecting),
+      { threshold: 0.25 }
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onVisibilityChange = () => setPageVisible(document.visibilityState === "visible");
+    onVisibilityChange();
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  useEffect(() => {
+    if (reducedMotion || isPaused || !inView || !pageVisible) return;
     const t = setInterval(() => setIndex((i) => (i + 1) % images.length), CAROUSEL_INTERVAL);
     return () => clearInterval(t);
-  }, []);
+  }, [inView, isPaused, pageVisible, reducedMotion]);
 
   const handleNavigation = (direction: "prev" | "next") => {
     setIsAnimating(true);
@@ -37,21 +62,32 @@ export default function DrawingCarousel({ className = "" }: { className?: string
   };
 
   return (
-    <div className={"group relative w-full h-[225px] rounded-none border border-[color:var(--foreground)]/10 bg-background p-3 " + className}>
-      <div className="relative h-full w-full bg-background flex items-center justify-center">
-        <div className="w-full mx-3 flex flex-col items-center justify-center gap-3">
-          <div className="relative h-[160px] w-full rounded-sm border border-[color:var(--foreground)]/10 overflow-hidden flex flex-col items-center justify-start bg-[color:var(--background)]/95 shadow-lg pt-4">
-            <div className="relative h-[100px] w-[85%] bg-gray-50 border border-gray-200 flex items-center justify-center mb-4">
-              <Image
-                src={images[index].src}
-                alt={`drawing-${index}`}
-                fill
-                sizes="(max-width: 768px) 50vw, 200px"
-                className="object-contain filter sepia-20 contrast-110 brightness-105 saturate-90"
-              />
+    <div
+      ref={rootRef}
+      className={"group relative h-[260px] w-full rounded-[18px] bg-[color:var(--background)]/48 p-4 " + className}
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
+    >
+      <div className="relative flex h-full w-full items-center justify-center">
+        <div className="flex w-full flex-col items-center justify-center gap-4">
+          <div className="relative flex h-[184px] w-full flex-col items-center justify-start overflow-hidden rounded-2xl border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.025] pt-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="relative mb-4 flex h-[116px] w-[84%] items-center justify-center rounded-sm border border-gray-200 bg-gray-50">
+              {images.map((image, imageIndex) => (
+                <Image
+                  key={image.src}
+                  src={image.src}
+                  alt={`drawing-${imageIndex}`}
+                  fill
+                  sizes="(max-width: 768px) 50vw, 200px"
+                  className={`${styles.carouselImage} ${imageIndex === index ? styles.carouselImageActive : ""}`}
+                  aria-hidden={imageIndex !== index}
+                />
+              ))}
             </div>
             
-            <div className="text-[11px] text-[color:var(--foreground)]/70 text-center">
+            <div className="text-center text-[11px] text-[color:var(--foreground)]/60">
               by: {images[index].artist}
             </div>
           </div>

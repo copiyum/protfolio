@@ -7,10 +7,12 @@ import DrawingCanvas, { type DrawingCanvasHandle } from "./DrawingCanvas";
 import type { Note } from "./types";
 import { SimpleColorPicker } from "@/components/ui/shadcn-io/color-picker";
 import HoldToSubmit from "@/components/ui/hold-to-submit";
+import useReducedMotion from "@/hooks/use-reduced-motion";
 
 const COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#a855f7", "#f97316", "#22d3ee", "#e5e7eb"];
 
 const STORAGE_KEY = "visitors-board-v1";
+const MODAL_EXIT_MS = 220;
 
 function randomRotation() { return Math.round((Math.random() * 8 - 4) * 10) / 10; } // ±4° — controlled scatter, not chaos
 function clamp01(n:number){return Math.max(0, Math.min(100, n));}
@@ -33,17 +35,25 @@ export default function VisitorsBoard() {
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [isModalOpen, setModalOpen] = useState(false);
+  const [isModalVisible, setModalVisible] = useState(false);
   const [draftColor, setDraftColor] = useState(COLORS[3]);
   const [draftName, setDraftName] = useState("");
   const [draftMsg, setDraftMsg] = useState("");
   const drawingRef = useRef<DrawingCanvasHandle | null>(null);
+  const modalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [brushWidth, setBrushWidth] = useState(4);
   const [erase, setErase] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const reducedMotion = useReducedMotion();
 
   useEffect(() => setMounted(true), []);
   useEffect(() => { setNotes(loadNotes()); }, []);
   useEffect(() => saveNotes(notes), [notes]);
+  useEffect(() => {
+    return () => {
+      if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
+    };
+  }, []);
 
   const placeRandom = () => {
     const rect = boardRef.current?.getBoundingClientRect();
@@ -97,8 +107,23 @@ export default function VisitorsBoard() {
   const remove = (id: string) => setNotes(prev => prev.filter(n => n.id !== id));
 
   // Modal handlers
-  const openModal = () => setModalOpen(true);
-  const closeModal = () => setModalOpen(false);
+  const openModal = () => {
+    if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
+    setModalOpen(true);
+    if (reducedMotion) {
+      setModalVisible(true);
+      return;
+    }
+    requestAnimationFrame(() => setModalVisible(true));
+  };
+
+  const closeModal = useCallback(() => {
+    setModalVisible(false);
+    if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
+    modalTimerRef.current = setTimeout(() => {
+      setModalOpen(false);
+    }, reducedMotion ? 0 : MODAL_EXIT_MS);
+  }, [reducedMotion]);
 
   const submit = () => {
     const data = drawingRef.current?.exportAsDataUrl() || "";
@@ -139,7 +164,7 @@ export default function VisitorsBoard() {
     <div>
       <div className="mb-5 flex items-center gap-4">
         <button
-          className="px-4 py-2 rounded-lg bg-foreground text-background hover:opacity-90 hover:scale-[1.03] active:scale-95 transition-all duration-[140ms] ease-out text-sm font-medium flex items-center gap-2"
+          className="px-4 py-2 rounded-lg bg-foreground text-background hover:opacity-90 hover:scale-[1.03] active:scale-95 transition-[opacity,transform] duration-[var(--motion-micro)] ease-[var(--ease-standard)] text-sm font-medium flex items-center gap-2"
           onClick={openModal}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -159,21 +184,26 @@ export default function VisitorsBoard() {
       </div>
       <div ref={boardRef} className={styles.board}>
         <div className={styles.gridBg} />
-        {notes.length === 0 && (
-          <div className={styles.empty}>
+        <div className={styles.empty} data-hidden={notes.length > 0 ? "true" : undefined} aria-hidden={notes.length > 0}>
             <div className={styles.ghostRow} aria-hidden>
               <span className={styles.ghost} style={{ transform: "rotate(-4deg)" }} />
               <span className={styles.ghost} style={{ transform: "rotate(2deg)" }} />
               <span className={styles.ghost} style={{ transform: "rotate(5deg)" }} />
             </div>
             <p className={styles.emptyText}>Be the first to leave a doodle.</p>
-          </div>
-        )}
+        </div>
         {notes.map(renderCard)}
       </div>
 
       {isModalOpen && mounted && createPortal(
-        <div className={styles.modalBackdrop} role="dialog" aria-modal>
+        <div
+          className={`${styles.modalBackdrop} ${isModalVisible ? styles.modalBackdropOpen : ""}`}
+          role="dialog"
+          aria-modal
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeModal();
+          }}
+        >
           <div className={styles.modal}>
             <div className={styles.modalHeader}>
               <div className="text-sm opacity-80">Leave a note</div>

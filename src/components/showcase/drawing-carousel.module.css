@@ -1,8 +1,37 @@
+.round {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.carouselImage {
+  object-fit: contain;
+  filter: sepia(20%) contrast(1.1) brightness(1.05) saturate(0.9) blur(3px);
+  opacity: 0;
+  transform: translateY(6px) scale(0.985);
+  transition:
+    opacity var(--motion-panel) var(--ease-standard),
+    transform var(--motion-panel) var(--ease-standard),
+    filter var(--motion-panel) var(--ease-standard);
+}
+
+.carouselImageActive {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: sepia(20%) contrast(1.1) brightness(1.05) saturate(0.9) blur(0);
+}
+
 .round:hover {
   opacity: 1;
   transform: translateY(-2px) scale(1.1);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-  transition: box-shadow 180ms ease, transform 160ms ease;
+  transition:
+    box-shadow var(--motion-state) var(--ease-standard),
+    transform var(--motion-micro) var(--ease-standard);
 }
 
 .round:active {
@@ -59,7 +88,7 @@
   color: currentColor;
   line-height: 0;
   font-size: 14px;
-  transition: left 0.1s ease-out;
+  transition: left var(--motion-micro) var(--ease-standard);
 }
 
 /* Hover effect for RIGHT ARROW dot - moves toward arrow */
@@ -88,7 +117,7 @@
   left: 8px; /* Same distance as right arrow, just 2px */
 }
 
-Enhanced hover glow for theme compliance
+/* Enhanced hover glow for theme compliance */
 .round:hover .arrow::before,
 .round:focus-visible .arrow::before {
   filter: drop-shadow(0 0 3px currentColor);
@@ -139,30 +168,24 @@ Enhanced hover glow for theme compliance
   animation: arrowHeadPulsePrev 0.35s ease-out;
 }
 
-/* Ripple effect on click */
-.cta::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  border-radius: 50%;
-  background: rgba(59, 130, 246, 0.3);
-  transform: translate(-50%, -50%);
-  transition: all 0.5s ease-out;
-  opacity: 0;
-}
-
-.round:active .cta::after {
-  width: 40px;
-  height: 40px;
-  opacity: 1;
-  transition-duration: 0s;
-}
-
 /* Animation classes (attach directly on the .arrow element) */
 .arrow.bounceAlpha::before,
 .arrow.bounceAlphaPrev::before {
   animation: arrowHeadPulse 0.35s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carouselImage,
+  .round:hover,
+  .round:active,
+  .arrow::after {
+    transition: none;
+  }
+
+  .arrow.bounceAlpha::before,
+  .arrow.bounceAlphaPrev::before,
+  .arrow.prev.bounceAlpha::before,
+  .arrow.prev.bounceAlphaPrev::before {
+    animation: none;
+  }
 }

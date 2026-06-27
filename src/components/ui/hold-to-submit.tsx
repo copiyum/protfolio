@@ -121,7 +121,7 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
       <button
         className={`
           relative overflow-hidden px-5 py-2.5 rounded-lg font-medium text-sm
-          bg-foreground text-background transition-all duration-200
+          bg-foreground text-background transition-[opacity,transform,box-shadow] duration-[var(--motion-state)]
           select-none touch-none border border-transparent
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 hover:scale-[1.03] active:scale-95'}
           ${isHolding ? `border-background/20 ${styles.holding}` : ''}

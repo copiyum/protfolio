@@ -5,25 +5,15 @@
   transition: transform 0.15s linear;
 }
 
-.holding {
-  animation: htsHoldPulse 0.6s ease-in-out infinite;
-}
-
-@keyframes htsHoldPulse {
-  0%, 100% { box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.1); }
-  50%      { box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.18); }
-}
+.holding { outline: 1px solid rgba(255, 255, 255, 0.14); }
 
 .spin {
-  animation: htsSpin 1s linear infinite;
-}
-
-@keyframes htsSpin {
-  to { transform: rotate(360deg); }
+  transform: rotate(12deg) scale(1.04);
+  transition: transform var(--motion-state) var(--ease-standard);
 }
 
 .popIn {
-  animation: htsPopIn 0.2s ease-out both;
+  animation: htsPopIn var(--motion-state) var(--ease-standard) both;
 }
 
 @keyframes htsPopIn {
@@ -33,7 +23,7 @@
 
 .dropIn {
   display: inline-block;
-  animation: htsDropIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: htsDropIn var(--motion-panel) var(--ease-standard) both;
 }
 
 @keyframes htsDropIn {
@@ -45,11 +35,23 @@
 .star {
   transform-origin: center center;
   left: 50%;
-  animation: htsStarFly 1.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: htsStarFly 1.25s var(--ease-standard) both;
 }
 
 @keyframes htsStarFly {
   0%   { opacity: 0; transform: translate(0, 0) rotate(0deg); }
   50%  { opacity: 1; }
   100% { opacity: 0; transform: translate(var(--tx), var(--ty)) rotate(var(--rot)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popIn,
+  .dropIn,
+  .star {
+    animation: none;
+  }
+
+  .spin {
+    transform: none;
+  }
 }

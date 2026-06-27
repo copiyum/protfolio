@@ -96,11 +96,11 @@ export default function TechStack() {
   };
 
   return (
-  <div ref={containerRef} className="relative grid cursor-none select-none grid-cols-4 gap-2 overflow-hidden" style={{ background: 'transparent' }}>
+  <div ref={containerRef} className="relative flex flex-wrap cursor-none select-none gap-2 overflow-hidden" style={{ background: 'transparent' }}>
       {techStack.map((tech, index) => (
         <div
           key={tech.name}
-          className="tech-card-wrapper"
+          className="tech-card-wrapper w-[calc(25%-6px)]"
           style={{ '--glow-color': tech.color } as React.CSSProperties}
         >
           <div
@@ -116,7 +116,7 @@ export default function TechStack() {
           )}
           <div className="relative z-10 flex items-center justify-center">
             <div
-              className={`transition-all duration-300 ease-in-out ${
+              className={`transition-transform duration-[var(--motion-state)] ease-[var(--ease-standard)] ${
                 hoveredIndex === index ? styles.bounceOnce : ""
               } ${styles.techCard}`}
               style={{
@@ -137,7 +137,7 @@ export default function TechStack() {
         <>
           <div
             ref={(n) => { cursorHaloRef.current = n; placeCursor(n); }}
-            className="pointer-events-none absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-1 backdrop-blur-sm transition-all duration-200 ease-out"
+            className="pointer-events-none absolute z-10 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-1 backdrop-blur-sm transition-[opacity,transform,background-color,border-color] duration-[var(--motion-state)] ease-[var(--ease-standard)]"
             style={{
               backgroundColor: 'var(--cursor-halo-bg, rgba(255,255,255,0.1))',
               borderColor: 'var(--cursor-halo-border, rgba(255,255,255,0.3))'
@@ -145,7 +145,7 @@ export default function TechStack() {
           />
           <div
             ref={(n) => { cursorDotRef.current = n; placeCursor(n); }}
-            className="pointer-events-none absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-all duration-150 ease-out"
+            className="pointer-events-none absolute z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full transition-[opacity,transform,background-color] duration-[var(--motion-micro)] ease-[var(--ease-standard)]"
             style={{
               backgroundColor: 'var(--cursor-dot-bg, white)'
             }}

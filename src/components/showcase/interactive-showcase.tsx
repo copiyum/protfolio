@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef } from "react";
 import styles from "./interactive-showcase.module.css";
+import useReducedMotion from "@/hooks/use-reduced-motion";
 
 const SPRING = 0.12; // snappier spring
 const DEFAULT_Y = 0.5;
@@ -10,19 +11,43 @@ export default function InteractiveShowcase() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const targetRef = useRef(DEFAULT_Y); // cursor target (0..1)
   const clipRef = useRef(DEFAULT_Y); // smoothed "water surface"
+  const frameRef = useRef<number | null>(null);
+  const reducedMotion = useReducedMotion();
 
-  // One rAF for the component's lifetime. Lerps the smoothed value toward the
-  // target and writes it to a CSS var — no React state, so zero re-renders.
-  useEffect(() => {
-    let frame: number;
+  const writeClip = (value: number) => {
+    containerRef.current?.style.setProperty("--clip-y", `${value * 100}%`);
+  };
+
+  const settleClip = () => {
+    if (reducedMotion) {
+      clipRef.current = targetRef.current;
+      writeClip(clipRef.current);
+      return;
+    }
+    if (frameRef.current !== null) return;
     const tick = () => {
       clipRef.current += (targetRef.current - clipRef.current) * SPRING;
-      containerRef.current?.style.setProperty("--clip-y", `${clipRef.current * 100}%`);
-      frame = requestAnimationFrame(tick);
+      writeClip(clipRef.current);
+      if (Math.abs(targetRef.current - clipRef.current) > 0.001) {
+        frameRef.current = requestAnimationFrame(tick);
+      } else {
+        clipRef.current = targetRef.current;
+        writeClip(clipRef.current);
+        frameRef.current = null;
+      }
     };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, []);
+    frameRef.current = requestAnimationFrame(tick);
+  };
+
+  useEffect(() => {
+    if (reducedMotion && frameRef.current !== null) {
+      cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+    }
+    return () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    };
+  }, [reducedMotion]);
 
   const updateFromPointer = (clientY: number) => {
     const el = containerRef.current;
@@ -30,28 +55,28 @@ export default function InteractiveShowcase() {
     const rect = el.getBoundingClientRect();
     const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
     targetRef.current = y / rect.height;
+    settleClip();
   };
 
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[225px] overflow-hidden bg-background group rounded-none border border-[color:var(--foreground)]/10 p-3"
+      className="group relative h-[260px] w-full overflow-hidden rounded-[18px] bg-[color:var(--background)]/72 p-4"
       style={{ "--clip-y": "50%" } as React.CSSProperties}
       onMouseMove={(e) => updateFromPointer(e.clientY)}
-      onMouseLeave={() => { targetRef.current = DEFAULT_Y; }}
+      onMouseLeave={() => { targetRef.current = DEFAULT_Y; settleClip(); }}
     >
 
       <div className="relative h-full flex items-center justify-center">
         {/* centered inner box approx 176px tall with light border */}
-        <div className="w-full mx-3 flex items-center justify-center">
-          <div className="relative h-[176px] w-full border border-[color:var(--foreground)]/10 overflow-hidden">
-            {/* corner accents inside inner box */}
-            {[["top-0","left-0","-50%","-50%"],["top-0","right-0","50%","-50%"],["bottom-0","left-0","-50%","50%"],["bottom-0","right-0","50%","50%"]].map((pos,i)=>(
-              <React.Fragment key={i}>
-                <span style={{ transform: `translate(${pos[2]}, ${pos[3]})` }} className={`absolute ${pos[0]} ${pos[1]} w-6 h-[2px] bg-indigo-400 opacity-0 group-hover:opacity-100 transition`} />
-                <span style={{ transform: `translate(${pos[2]}, ${pos[3]})` }} className={`absolute ${pos[0]} ${pos[1]} h-6 w-[2px] bg-indigo-400 opacity-0 group-hover:opacity-100 transition`} />
-              </React.Fragment>
-            ))}
+        <div className="flex w-full items-center justify-center">
+          <div className="relative h-[190px] w-full overflow-hidden rounded-xl border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.015]">
+            <div className={styles.cornerAccents} aria-hidden>
+              <span className={`${styles.cornerAccent} ${styles.topLeft}`} />
+              <span className={`${styles.cornerAccent} ${styles.topRight}`} />
+              <span className={`${styles.cornerAccent} ${styles.bottomLeft}`} />
+              <span className={`${styles.cornerAccent} ${styles.bottomRight}`} />
+            </div>
 
             {/* Inner clipped content container */}
             <div className="absolute inset-0 overflow-hidden flex items-center justify-center">

@@ -1,8 +1,8 @@
 import AnimatedStars from "@/components/ui/animated-stars";
 import IntroSection from "@/components/home/intro-section";
+import BentoBlock from "@/components/home/bento-block";
 import TechStack from "@/components/home/tech-stack";
 import InteractiveShowcase from "@/components/showcase/interactive-showcase";
-import Tag from "@/components/ui/Tag";
 import FeaturedProjects from "@/components/home/featured-projects";
 import Experience from "@/components/home/experience";
 import GithubContributions from "@/components/home/github-contributions";
@@ -19,64 +19,62 @@ export default function Home() {
     <div className="relative min-h-[calc(100vh-3.5rem)]">
       <AnimatedStars />
 
-      <MapSection />
-      <main className="relative z-10 mx-auto max-w-[550px] px-1">
-        <IntroSection />
-
-        {/* Socials — right under the intro */}
-        <Reveal delay={300} className="mt-6">
-          <SectionPanel label="Elsewhere">
-            <SocialLinks />
-          </SectionPanel>
-        </Reveal>
-
-        <Reveal className="mt-14">
-          <TechStack />
-        </Reveal>
-
-        {/* Interactive showcase + drawing carousel — golden split, equal heights */}
-        <Reveal className="mt-14">
-          <div className="w-full mx-auto">
-            {/* Tag: UI (above the interactive + drawing container) */}
-            <div className="mb-3 flex justify-start">
-              <Tag className="uppercase tracking-wide" size="sm" variant="outline">
-                UI
-              </Tag>
+      <main className="relative z-10 mx-auto max-w-[550px] px-2 pb-20">
+        <Reveal className="mt-10">
+          <section className="overflow-hidden rounded-[28px] border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.018] p-2 shadow-[0_24px_90px_rgba(0,0,0,0.18)]">
+            <MapSection />
+            <div className="px-1 pb-2 pt-4">
+              <IntroSection />
+              <div className="mt-6">
+                <SocialLinks />
+              </div>
+              <div className="mt-6">
+                <BentoBlock />
+              </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-[1.618fr_1fr] gap-3 items-stretch">
-              <InteractiveShowcase />
-              <DrawingCarousel />
-            </div>
-          </div>
+          </section>
         </Reveal>
 
-        {/* Calendar inserted below interactive and drawing elements; matches container width */}
-        <Reveal className="mt-14">
-          <Calendar />
-        </Reveal>
-
-        {/* Typing simulator — monkeytype-style, same centered max width */}
-        <Reveal className="mt-14">
-          <TypingSimulator />
-        </Reveal>
-
-        {/* Experience */}
-        <Reveal className="mt-14">
+        <Reveal className="mt-[72px]">
           <SectionPanel label="Experience">
             <Experience />
           </SectionPanel>
         </Reveal>
 
-        {/* Featured projects */}
-        <Reveal className="mt-14">
-          <SectionPanel label="Featured projects">
+        <Reveal className="mt-[72px]">
+          <SectionPanel label="Featured Projects">
             <FeaturedProjects />
           </SectionPanel>
         </Reveal>
 
-        {/* GitHub contributions */}
-        <Reveal className="mt-14 mb-20">
+        <Reveal className="mt-[72px]">
+          <section className="space-y-5">
+            <h2 className="text-xl font-semibold tracking-normal text-[color:var(--foreground)]">
+              Playground
+            </h2>
+            <div className="space-y-4">
+              <div className="rounded-[24px] border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.018] p-3 shadow-[0_18px_70px_rgba(0,0,0,0.12)]">
+                <div className="grid grid-cols-1 items-stretch gap-3 md:grid-cols-[1.7fr_1fr]">
+                  <InteractiveShowcase />
+                  <DrawingCarousel />
+                </div>
+              </div>
+              <Calendar />
+              <TypingSimulator />
+            </div>
+          </section>
+        </Reveal>
+
+        <Reveal className="mt-[72px]">
+          <section className="space-y-5">
+            <h2 className="text-xl font-semibold tracking-normal text-[color:var(--foreground)]">
+              Stack
+            </h2>
+            <TechStack />
+          </section>
+        </Reveal>
+
+        <Reveal className="mt-[72px]">
           <SectionPanel label="Contributions">
             <GithubContributions />
           </SectionPanel>
