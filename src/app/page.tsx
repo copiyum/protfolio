@@ -21,7 +21,7 @@ export default function Home() {
 
       <main className="relative z-10 mx-auto max-w-[550px] px-2 pb-20">
         <Reveal className="mt-10">
-          <section className="overflow-hidden rounded-[28px] border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.018] p-2 shadow-[0_24px_90px_rgba(0,0,0,0.18)]">
+          <section className="overflow-hidden rounded-[28px] border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.018] p-2">
             <MapSection />
             <div className="px-1 pb-2 pt-4">
               <IntroSection />
