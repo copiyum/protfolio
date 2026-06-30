@@ -255,6 +255,20 @@
   transform-origin: center center;
 }
 
+/* Silky glow — soft outer halo behind the pill; kept low + diffuse so the
+   pill's 1px border keeps its edge contrast (was washing it out at .55) */
+.overlayPill::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  z-index: -1;
+  border-radius: calc(var(--pill-radius) + 10px);
+  background: color-mix(in srgb, var(--foreground), transparent 85%);
+  filter: blur(22px);
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 @keyframes stretchSides {
   0% { transform: scaleX(1); }
   35% { transform: scaleX(1.10); }

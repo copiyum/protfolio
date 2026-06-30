@@ -16,7 +16,7 @@
 	border-radius: 6px;
 	pointer-events: none;
 	background: transparent;
-	box-shadow: 0 6px 18px rgb(30, 65, 219);
+	box-shadow: 0 0 22px 1px rgba(30, 65, 219, 0.5);
 	transition: opacity var(--motion-state) var(--ease-standard), transform var(--motion-state) var(--ease-standard);
 	-webkit-backdrop-filter:brightness(1.5);
 	backdrop-filter: brightness(1.5);
