@@ -25,6 +25,9 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@/lib/admin/*": [
+        "./src/lib/admin/*"
       ]
     },
     "types": [
