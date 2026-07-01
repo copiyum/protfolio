@@ -74,15 +74,16 @@ export default function InteractiveShowcase() {
 			    lavender border, the rest of the edge stays as the thin /8 base. */}
 			<div className="relative h-full flex items-center justify-center">
 				<div className="flex w-full items-center justify-center">
-					<div className="relative h-[190px] w-full overflow-hidden rounded-xl border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.015]">
-						{/* Lavender corner pieces — only at the four corners of this card.
-						    Subtle by default, fully lit + glowing on hover (parent has .group). */}
-						<div className={styles.cornerFrame} aria-hidden>
-							<span className={`${styles.cornerP} ${styles.topLeft}`} />
-							<span className={`${styles.cornerP} ${styles.topRight}`} />
-							<span className={`${styles.cornerP} ${styles.bottomLeft}`} />
-							<span className={`${styles.cornerP} ${styles.bottomRight}`} />
-						</div>
+					<div
+						className={`relative h-[190px] w-full overflow-hidden rounded-xl border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.015] ${styles.card}`}
+					>
+						{/* Lavender corner accents — quarter-discs that draw only the
+						    curved corner of the card, so the lit purple area IS part of the
+						    existing border (no separate bracket). Mid-edges stay grey. */}
+						<span className={styles.cornerTL} aria-hidden />
+						<span className={styles.cornerTR} aria-hidden />
+						<span className={styles.cornerBL} aria-hidden />
+						<span className={styles.cornerBR} aria-hidden />
 
 						{/* Inner clipped content container */}
 						<div className="absolute inset-0 overflow-hidden flex items-center justify-center">

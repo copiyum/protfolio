@@ -35,10 +35,7 @@ export default function Home() {
 					</section>
 				</Reveal>
 
-				{/* Case-study band — Experience + Featured Projects as one tinted area on the
-						white page. Surface swap is via --band-surface (CSS var, overridden under
-						.dark); no Tailwind dark: classes (codebase has no @custom-variant). */}
-				<div className="mt-[72px] -mx-2 rounded-3xl bg-[color:var(--band-surface)] px-3 py-6 ring-1 ring-[color:var(--foreground)]/8">
+				<div className="mt-[72px] -mx-2 rounded-3xl px-3 py-6 ring-1 ring-[color:var(--foreground)]/8">
 					<Reveal>
 						<SectionPanel label="Experience">
 							<Experience />

@@ -18,70 +18,79 @@
 	box-shadow: 0 0 6px rgba(143, 145, 224, 0.7);
 }
 
-/* Lavender corner brackets — only the four rounded corners of the inner card
-   get a lavender "rounded border" piece. The middle of each edge stays as the
-   thin /8 base border, so the card's overall frame is unchanged except where
-   the corners light up. Subtle at rest, lit + glowing on parent .group:hover. */
-.cornerFrame {
-	position: absolute;
-	inset: 0;
-	pointer-events: none;
-	border-radius: inherit;
+/* The card's own grey border IS the frame. Four lavender L-brackets at the
+   corners trace the same rounded-xl curve so the lit purple IS the border at
+   the corner — overlapping the 1px grey line, mid-edges stay grey. */
+.card {
+	position: relative;
+	isolation: isolate;
 }
 
-.cornerP {
+.cornerTL,
+.cornerTR,
+.cornerBL,
+.cornerBR {
 	position: absolute;
-	width: 22px;
-	height: 22px;
+	width: 24px;
+	height: 24px;
 	border-style: solid;
 	border-color: var(--accent, #8f91e0);
 	border-width: 0;
-	opacity: 0.35;
+	pointer-events: none;
+	opacity: 0;
 	transition:
 		opacity var(--motion-state) var(--ease-standard),
 		filter var(--motion-state) var(--ease-standard);
 }
 
-:global(.group:hover) .cornerP {
+/* 24x24 boxes aligned to the card's exact corners with 12px corner-radius
+   matching rounded-xl. 2px borders only on the relevant sides draw the L of
+   the corner, with the curve overlaying the existing 1px grey border. */
+.cornerTL {
+	top: 0;
+	left: 0;
+	border-top-width: 2px;
+	border-left-width: 2px;
+	border-top-left-radius: 12px;
+}
+
+.cornerTR {
+	top: 0;
+	right: 0;
+	border-top-width: 2px;
+	border-right-width: 2px;
+	border-top-right-radius: 12px;
+}
+
+.cornerBL {
+	bottom: 0;
+	left: 0;
+	border-bottom-width: 2px;
+	border-left-width: 2px;
+	border-bottom-left-radius: 12px;
+}
+
+.cornerBR {
+	bottom: 0;
+	right: 0;
+	border-bottom-width: 2px;
+	border-right-width: 2px;
+	border-bottom-right-radius: 12px;
+}
+
+:global(.group:hover) .cornerTL,
+:global(.group:hover) .cornerTR,
+:global(.group:hover) .cornerBL,
+:global(.group:hover) .cornerBR {
 	opacity: 1;
 	filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent, #8f91e0) 60%, transparent));
 }
 
-/* Each corner piece draws an L of border matching the inner card's rounded-xl */
-.topLeft {
-	top: 6px;
-	left: 6px;
-	border-top-width: 2px;
-	border-left-width: 2px;
-	border-top-left-radius: 10px;
-}
-
-.topRight {
-	top: 6px;
-	right: 6px;
-	border-top-width: 2px;
-	border-right-width: 2px;
-	border-top-right-radius: 10px;
-}
-
-.bottomLeft {
-	bottom: 6px;
-	left: 6px;
-	border-bottom-width: 2px;
-	border-left-width: 2px;
-	border-bottom-left-radius: 10px;
-}
-
-.bottomRight {
-	bottom: 6px;
-	right: 6px;
-	border-bottom-width: 2px;
-	border-right-width: 2px;
-	border-bottom-right-radius: 10px;
-}
-
 @media (prefers-reduced-motion: reduce) {
-	.cornerP {
+	.cornerTL,
+	.cornerTR,
+	.cornerBL,
+	.cornerBR {
 		transition: none;
 	}
 }

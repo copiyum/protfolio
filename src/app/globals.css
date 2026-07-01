@@ -24,9 +24,6 @@
 	--foreground-rgb: 10, 10, 10;
 	/* card / thumb defaults (light theme) */
 	--card-bg: rgba(10, 10, 10, 0.02);
-	/* Case-study band surface — warm cream tint so Experience + Featured Projects
-	   read as one area on a white page without needing the page itself to be tinted. */
-	--band-surface: #efece6;
 	--card-border: rgba(10, 10, 10, 0.06);
 	--thumb-border: rgba(10, 10, 10, 0.08);
 	/* cursor + tooltip defaults (light) */
@@ -42,7 +39,6 @@
 	--page-bg: #0a0a0a;
 	--foreground: #ededed;
 	--foreground-rgb: 237, 237, 237;
-	--band-surface: #141414;
 	/* card / thumb defaults (dark theme) */
 	--card-bg: linear-gradient(
 		180deg,
