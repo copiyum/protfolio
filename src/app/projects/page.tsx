@@ -16,7 +16,7 @@ export default function ProjectsPage() {
           <p className="mt-1 text-sm text-neutral-400">Things I&apos;ve built, broken, and rebuilt.</p>
         </div>
 
-        <SectionPanel label="Projects">
+        <SectionPanel>
           <ul className="divide-y divide-[color:var(--foreground)]/10">
             {projects.map((p) => (
               <li key={p.id}>

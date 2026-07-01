@@ -5,7 +5,7 @@ import TechStack from "@/components/home/tech-stack";
 import InteractiveShowcase from "@/components/showcase/interactive-showcase";
 import FeaturedProjects from "@/components/home/featured-projects";
 import Experience from "@/components/home/experience";
-import GithubContributions from "@/components/home/github-contributions";
+import GithubContributions from "@/components/github-contributions";
 import SocialLinks from "@/components/home/social-links";
 import DrawingCarousel from "@/components/showcase/drawing-carousel";
 import MapSection from "@/components/home/map-section";
