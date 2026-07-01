@@ -1,0 +1,11 @@
+name = "pf-admin-test"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pf-admin"
+database_id = "test-stub-id"
+
+[vars]
+NODE_ENV = "test"

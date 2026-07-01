@@ -31,7 +31,9 @@
       ]
     },
     "types": [
-      "vitest/globals"
+      "vitest/globals",
+      "@cloudflare/workers-types",
+      "@cloudflare/vitest-pool-workers/types"
     ]
   },
   "include": [
