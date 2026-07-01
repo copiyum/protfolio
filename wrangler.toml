@@ -1,0 +1,25 @@
+name = "pf-admin"
+main = ".opennext/worker.js"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pf-admin"
+database_id = "<set-after-run-wrangler-d1-create>"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "pf-admin-assets"
+
+[vars]
+NODE_ENV = "production"
+
+# Secrets via `wrangler secret put`:
+# ADMIN_COOKIE_SECRET
+# CF_ACCESS_AUD
+# CF_ACCESS_TEAM_DOMAIN
+# TURNSTILE_SECRET
+# R2_PRESIGN_SECRET
+# ALERT_EMAIL_WEBHOOK
+# CRON_SECRET
