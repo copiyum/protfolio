@@ -1,53 +1,61 @@
 @import "tailwindcss";
 
 :root {
-  /* Motion language — one set of curves/durations the whole site shares */
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-inout: cubic-bezier(0.76, 0, 0.24, 1);
-  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-productive: cubic-bezier(0.32, 0.72, 0, 1);
-  --dur-micro: 140ms;
-  --dur-enter: 480ms;
-  --dur-hero: 600ms;
-  --motion-micro: 140ms;
-  --motion-state: 220ms;
-  --motion-panel: 360ms;
-  --motion-section: 480ms;
-  --motion-hero: 600ms;
-  --accent: #8f91e0;
+	/* Motion language — one set of curves/durations the whole site shares */
+	--ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-inout: cubic-bezier(0.76, 0, 0.24, 1);
+	--ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+	--ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
+	--ease-productive: cubic-bezier(0.32, 0.72, 0, 1);
+	--dur-micro: 140ms;
+	--dur-enter: 480ms;
+	--dur-hero: 600ms;
+	--motion-micro: 140ms;
+	--motion-state: 220ms;
+	--motion-panel: 360ms;
+	--motion-section: 480ms;
+	--motion-hero: 600ms;
+	--accent: #8f91e0;
 
-  --background: #ffffff;
-  --page-bg: #f5f5f5;
-  --foreground: #0a0a0a;
-  /* RGB form of foreground for rgba(...) usage */
-  --foreground-rgb: 10,10,10;
-  /* card / thumb defaults (light theme) */
-  --card-bg: rgba(10,10,10,0.02);
-  --card-border: rgba(10,10,10,0.06);
-  --thumb-border: rgba(10,10,10,0.08);
-  /* cursor + tooltip defaults (light) */
-  --cursor-dot-bg: #0a0a0a; /* black-ish */
-  --cursor-halo-bg: rgba(156, 163, 175, 0.6); /* gray halo */
-  --cursor-halo-border: rgba(107, 114, 128, 0.8);
-  --tooltip-bg: rgba(0,0,0,0.8);
-  --tooltip-fg: #ffffff;
+	--background: #ffffff;
+	--page-bg: #ffffff;
+	--foreground: #0a0a0a;
+	/* RGB form of foreground for rgba(...) usage */
+	--foreground-rgb: 10, 10, 10;
+	/* card / thumb defaults (light theme) */
+	--card-bg: rgba(10, 10, 10, 0.02);
+	/* Case-study band surface — warm cream tint so Experience + Featured Projects
+	   read as one area on a white page without needing the page itself to be tinted. */
+	--band-surface: #efece6;
+	--card-border: rgba(10, 10, 10, 0.06);
+	--thumb-border: rgba(10, 10, 10, 0.08);
+	/* cursor + tooltip defaults (light) */
+	--cursor-dot-bg: #0a0a0a; /* black-ish */
+	--cursor-halo-bg: rgba(156, 163, 175, 0.6); /* gray halo */
+	--cursor-halo-border: rgba(107, 114, 128, 0.8);
+	--tooltip-bg: rgba(0, 0, 0, 0.8);
+	--tooltip-fg: #ffffff;
 }
 
 .dark {
-  --background: #000;
-  --page-bg: #0A0A0A;
-  --foreground: #ededed;
-  --foreground-rgb: 237,237,237;
-  /* card / thumb defaults (dark theme) */
-  --card-bg: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-  --card-border: rgba(255,255,255,0.06);
-  --thumb-border: rgba(255,255,255,0.10);
-  --cursor-dot-bg: #ffffff;
-  --cursor-halo-bg: rgba(255, 255, 255, 0.1);
-  --cursor-halo-border: rgba(255, 255, 255, 0.3);
-  --tooltip-bg: rgba(17,17,17,0.9);
-  --tooltip-fg: #ededed;
+	--background: #000;
+	--page-bg: #0a0a0a;
+	--foreground: #ededed;
+	--foreground-rgb: 237, 237, 237;
+	--band-surface: #141414;
+	/* card / thumb defaults (dark theme) */
+	--card-bg: linear-gradient(
+		180deg,
+		rgba(255, 255, 255, 0.02),
+		rgba(255, 255, 255, 0.01)
+	);
+	--card-border: rgba(255, 255, 255, 0.06);
+	--thumb-border: rgba(255, 255, 255, 0.1);
+	--cursor-dot-bg: #ffffff;
+	--cursor-halo-bg: rgba(255, 255, 255, 0.1);
+	--cursor-halo-border: rgba(255, 255, 255, 0.3);
+	--tooltip-bg: rgba(17, 17, 17, 0.9);
+	--tooltip-fg: #ededed;
 }
 
 /* theme vars consumed via CSS variables and Tailwind classes */
@@ -55,166 +63,199 @@
 /* Tailwind v4 defaults bare `border` to currentColor (near-black in light mode → brutalist).
    Default it to the subtle theme border instead; explicit border-[...] classes still override. */
 @layer base {
-  *, ::before, ::after { border-color: var(--card-border, currentColor); }
+	*,
+	::before,
+	::after {
+		border-color: var(--card-border, currentColor);
+	}
 }
 
-body { background: var(--page-bg); color: var(--foreground); }
+body {
+	background: var(--page-bg);
+	color: var(--foreground);
+}
 
-* { outline-color: #3b82f6; }
+* {
+	outline-color: #3b82f6;
+}
 
 /* Border-only halo effect for tech cards */
 .tech-card-wrapper {
-  position: relative;
-  display: inline-block;
-  border-radius: 0.5rem;
-  overflow: hidden;
+	position: relative;
+	display: inline-block;
+	border-radius: 0.5rem;
+	overflow: hidden;
 }
 
 .tech-card-wrapper::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  padding: 2px; /* border thickness */
-  border-radius: inherit;
+	content: "";
+	position: absolute;
+	inset: 0;
+	padding: 2px; /* border thickness */
+	border-radius: inherit;
 
-  /* Single diagonal beam */
-  background: linear-gradient(
-    135deg,
-    transparent 45%,
-    var(--glow-color, rgba(59,130,246,1)) 50%,
-    transparent 55%
-  );
-  background-size: 300% 300%;  /* plenty of room for full travel */
-  background-position: -80% -80%; /* start just outside top-left */
-  background-repeat: no-repeat; /* prevents ANY wrapping */
+	/* Single diagonal beam */
+	background: linear-gradient(
+		135deg,
+		transparent 45%,
+		var(--glow-color, rgba(59, 130, 246, 1)) 50%,
+		transparent 55%
+	);
+	background-size: 300% 300%; /* plenty of room for full travel */
+	background-position: -80% -80%; /* start just outside top-left */
+	background-repeat: no-repeat; /* prevents ANY wrapping */
 
-  /* Clip to border strip */
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask-composite: exclude;
+	/* Clip to border strip */
+	-webkit-mask:
+		linear-gradient(#fff 0 0) content-box,
+		linear-gradient(#fff 0 0);
+	-webkit-mask-composite: xor;
+	mask:
+		linear-gradient(#fff 0 0) content-box,
+		linear-gradient(#fff 0 0);
+	mask-composite: exclude;
 
-  filter: blur(12px); /* softer glow effect */
-  opacity: 0;
-  transition: opacity var(--motion-state) var(--ease-standard);
-  pointer-events: none;
-  z-index: 2;
+	filter: blur(12px); /* softer glow effect */
+	opacity: 0;
+	transition: opacity var(--motion-state) var(--ease-standard);
+	pointer-events: none;
+	z-index: 2;
 }
 
 .tech-card-wrapper:hover::before {
-  opacity: 1;
-  animation: diagonal-sweep 1.8s var(--ease-standard) infinite alternate;
+	opacity: 1;
+	animation: diagonal-sweep 1.8s var(--ease-standard) infinite alternate;
 }
 
 @keyframes diagonal-sweep {
-  from {
-    background-position: 25% 25%; /* start just outside top-left */
-  }
-  to {
-    background-position: 70% 70%; /* end just outside bottom-right */
-  }
+	from {
+		background-position: 25% 25%; /* start just outside top-left */
+	}
+	to {
+		background-position: 70% 70%; /* end just outside bottom-right */
+	}
 }
 
 .tech-card {
-  position: relative;
-  overflow: hidden;
+	position: relative;
+	overflow: hidden;
 }
 
 /* Scale injected tech-stack SVGs to their wrapper (replaces a string .replace hack) */
-.tech-icon svg { width: 100%; height: 100%; display: block; }
+.tech-icon svg {
+	width: 100%;
+	height: 100%;
+	display: block;
+}
 
 /* Scroll/entrance reveal — used by <Reveal> */
 .reveal {
-  opacity: 0;
-  transform: translateY(16px);
-  transition:
-    opacity var(--motion-section) var(--ease-standard),
-    transform var(--motion-section) var(--ease-standard),
-    filter var(--motion-section) var(--ease-standard);
-  filter: blur(2px);
+	opacity: 0;
+	transform: translateY(16px);
+	transition:
+		opacity var(--motion-section) var(--ease-standard),
+		transform var(--motion-section) var(--ease-standard),
+		filter var(--motion-section) var(--ease-standard);
+	filter: blur(2px);
 }
 .reveal-in {
-  opacity: 1;
-  transform: none;
-  filter: blur(0);
+	opacity: 1;
+	transform: none;
+	filter: blur(0);
 }
 
 @keyframes motion-presence-in {
-  from {
-    opacity: 0;
-    transform: translateY(6px) scale(0.985);
-    filter: blur(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-    filter: blur(0);
-  }
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.985);
+		filter: blur(4px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+		filter: blur(0);
+	}
 }
 
 .motion-presence-enter {
-  animation: motion-presence-in var(--motion-panel) var(--ease-standard) both;
+	animation: motion-presence-in var(--motion-panel) var(--ease-standard) both;
 }
 
 /* Animated underline for nav links */
 .nav-link {
-  position: relative;
+	position: relative;
 }
 .nav-link::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  bottom: -2px;
-  width: 100%;
-  height: 1.5px;
-  background: currentColor;
-  transform: scaleX(0);
-  transform-origin: left;
-  transition: transform var(--motion-micro) var(--ease-standard);
+	content: "";
+	position: absolute;
+	left: 0;
+	bottom: -2px;
+	width: 100%;
+	height: 1.5px;
+	background: currentColor;
+	transform: scaleX(0);
+	transform-origin: left;
+	transition: transform var(--motion-micro) var(--ease-standard);
 }
 .nav-link:hover::after {
-  transform: scaleX(1);
+	transform: scaleX(1);
 }
 
 /* Ambient hue-cycling backdrop — pure CSS (hue-rotate on a static gradient),
    no JS timer. Full cycle ~36s, matching the old 100ms×360 interval. */
 .gradient-backdrop {
-  background: radial-gradient(2000px 600px at 50% 0%, hsla(220, 80%, 60%, 0.15), transparent 70%);
-  animation: hue-cycle 52s linear infinite;
+	background: radial-gradient(
+		2000px 600px at 50% 0%,
+		hsla(220, 80%, 60%, 0.15),
+		transparent 70%
+	);
+	animation: hue-cycle 52s linear infinite;
 }
 @keyframes hue-cycle {
-  to { filter: hue-rotate(360deg); }
+	to {
+		filter: hue-rotate(360deg);
+	}
 }
 
 /* Equalizer bars for Now Playing */
 @keyframes eq-bar {
-  from { transform: scaleY(0.22); opacity: 0.72; }
-  to   { transform: scaleY(1); opacity: 1; }
+	from {
+		transform: scaleY(0.22);
+		opacity: 0.72;
+	}
+	to {
+		transform: scaleY(1);
+		opacity: 1;
+	}
 }
 
 /* Text selection accent tint */
-::selection { background: rgba(143, 145, 224, 0.25); }
+::selection {
+	background: rgba(143, 145, 224, 0.25);
+}
 
 /* Respect user's reduced motion preference */
 @media (prefers-reduced-motion: reduce) {
-  html:focus-within {
-    scroll-behavior: auto !important;
-  }
-  *, *::before, *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    scroll-behavior: auto !important;
-  }
-  .reveal {
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-  }
-  .gradient-backdrop {
-    animation: none !important;
-  }
-  .motion-presence-enter {
-    animation: none !important;
-  }
+	html:focus-within {
+		scroll-behavior: auto !important;
+	}
+	*,
+	*::before,
+	*::after {
+		transition-duration: 0.01ms !important;
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		scroll-behavior: auto !important;
+	}
+	.reveal {
+		opacity: 1 !important;
+		transform: none !important;
+		filter: none !important;
+	}
+	.gradient-backdrop {
+		animation: none !important;
+	}
+	.motion-presence-enter {
+		animation: none !important;
+	}
 }

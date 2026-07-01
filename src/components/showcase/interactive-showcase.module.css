@@ -1,74 +1,87 @@
 .glowingText {
-  -webkit-text-stroke: 1px #8F91E0;
-  text-shadow: 0 0 6px rgba(143,145,224,0.7);
-  clip-path: inset(var(--clip-y, 50%) 0 0 0);
+	-webkit-text-stroke: 1px #8f91e0;
+	text-shadow: 0 0 6px rgba(143, 145, 224, 0.7);
+	clip-path: inset(var(--clip-y, 50%) 0 0 0);
 }
 
 .waterFill {
-  background: linear-gradient(180deg, rgba(143,145,224,0.12) 0%, rgba(143,145,224,0.06) 30%, transparent 70%);
+	background: linear-gradient(
+		180deg,
+		rgba(143, 145, 224, 0.12) 0%,
+		rgba(143, 145, 224, 0.06) 30%,
+		transparent 70%
+	);
 }
 
 .waterLine {
-  background: #8F91E0;
-  box-shadow: 0 0 6px rgba(143,145,224,0.7);
+	background: #8f91e0;
+	box-shadow: 0 0 6px rgba(143, 145, 224, 0.7);
 }
 
-.cornerAccents {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  border-radius: inherit;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity var(--motion-state) var(--ease-standard);
+/* Lavender corner brackets — only the four rounded corners of the inner card
+   get a lavender "rounded border" piece. The middle of each edge stays as the
+   thin /8 base border, so the card's overall frame is unchanged except where
+   the corners light up. Subtle at rest, lit + glowing on parent .group:hover. */
+.cornerFrame {
+	position: absolute;
+	inset: 0;
+	pointer-events: none;
+	border-radius: inherit;
 }
 
-:global(.group:hover) .cornerAccents {
-  opacity: 1;
+.cornerP {
+	position: absolute;
+	width: 22px;
+	height: 22px;
+	border-style: solid;
+	border-color: var(--accent, #8f91e0);
+	border-width: 0;
+	opacity: 0.35;
+	transition:
+		opacity var(--motion-state) var(--ease-standard),
+		filter var(--motion-state) var(--ease-standard);
 }
 
-.cornerAccent {
-  position: absolute;
-  width: 30px;
-  height: 30px;
-  border-color: #818cf8;
-  filter: drop-shadow(0 0 5px rgba(129, 140, 248, 0.7));
+:global(.group:hover) .cornerP {
+	opacity: 1;
+	filter: drop-shadow(0 0 4px color-mix(in srgb, var(--accent, #8f91e0) 60%, transparent));
 }
 
+/* Each corner piece draws an L of border matching the inner card's rounded-xl */
 .topLeft {
-  top: 4px;
-  left: 4px;
-  border-top: 3px solid;
-  border-left: 3px solid;
-  border-top-left-radius: 14px;
+	top: 6px;
+	left: 6px;
+	border-top-width: 2px;
+	border-left-width: 2px;
+	border-top-left-radius: 10px;
 }
 
 .topRight {
-  top: 4px;
-  right: 4px;
-  border-top: 3px solid;
-  border-right: 3px solid;
-  border-top-right-radius: 14px;
+	top: 6px;
+	right: 6px;
+	border-top-width: 2px;
+	border-right-width: 2px;
+	border-top-right-radius: 10px;
 }
 
 .bottomLeft {
-  bottom: 4px;
-  left: 4px;
-  border-bottom: 3px solid;
-  border-left: 3px solid;
-  border-bottom-left-radius: 14px;
+	bottom: 6px;
+	left: 6px;
+	border-bottom-width: 2px;
+	border-left-width: 2px;
+	border-bottom-left-radius: 10px;
 }
 
 .bottomRight {
-  right: 4px;
-  bottom: 4px;
-  border-right: 3px solid;
-  border-bottom: 3px solid;
-  border-bottom-right-radius: 14px;
+	bottom: 6px;
+	right: 6px;
+	border-bottom-width: 2px;
+	border-right-width: 2px;
+	border-bottom-right-radius: 10px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cornerAccents {
-    transition: none;
-  }
+	.cornerP {
+		transition: none;
+	}
 }
