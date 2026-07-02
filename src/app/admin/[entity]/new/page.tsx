@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { registry, ENTITY_KEYS } from "@/lib/admin/registry";
 import { EntityForm } from "@/components/admin/EntityForm";
 
+// Admin pages are auth-gated at runtime; never pre-render at build.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function generateStaticParams() {
   return ENTITY_KEYS.map((entity) => ({ entity }));
 }

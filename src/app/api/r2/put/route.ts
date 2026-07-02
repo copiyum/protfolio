@@ -15,7 +15,7 @@ export async function PUT(req: NextRequest) {
   const exp = url.searchParams.get("exp");
   const sig = url.searchParams.get("sig");
   if (!key || !exp || !sig) return new Response("Bad request", { status: 400 });
-  if (!verifySig(key, exp, sig, env.R2_PRESIGN_SECRET)) return new Response("Bad signature", { status: 401 });
+  if (!(await verifySig(key, exp, sig, env.R2_PRESIGN_SECRET))) return new Response("Bad signature", { status: 401 });
 
   const mime = req.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
   const buf = await req.arrayBuffer();

@@ -2,6 +2,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
+import { z as zv } from "zod";
 
 export function EntityForm<S extends z.ZodTypeAny>({
   schema,
@@ -14,8 +15,10 @@ export function EntityForm<S extends z.ZodTypeAny>({
   onSubmit: (v: z.infer<S>) => Promise<void>;
   submitLabel?: string;
 }) {
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<z.infer<S>>({
-    resolver: zodResolver(schema),
+  // zod v4: output<S> is the safe "value" type; cast to any for react-hook-form
+  // generics that still expect FieldValues.
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<any>({
+    resolver: zodResolver(schema as any),
     defaultValues,
   });
   const fields = Object.keys((schema as unknown as { shape: Record<string, unknown> }).shape ?? {});

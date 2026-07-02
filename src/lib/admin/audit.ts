@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 export interface AuditInput {
   action: string;
   targetTable?: string;
@@ -11,7 +9,7 @@ export interface AuditInput {
 }
 
 export async function writeAudit(d1: D1Database, input: AuditInput): Promise<string> {
-  const id = randomUUID();
+  const id = crypto.randomUUID();
   await d1
     .prepare(
       `INSERT INTO audit_log (id, actor_credential_id, action, target_table, target_id, ip, ua, diff)
