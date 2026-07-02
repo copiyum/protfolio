@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.mzstatic.com" },
+      { protocol: "https", hostname: "github.com" },
     ],
   },
 };

@@ -175,7 +175,7 @@ export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { dens
   return (
     <canvas
       ref={canvasRef}
-  className="pointer-events-none fixed inset-0 -z-10 w-full h-full"
+      className="pointer-events-none fixed inset-0 z-[1] h-full w-full"
       aria-hidden
     />
   );

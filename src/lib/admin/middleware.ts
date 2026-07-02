@@ -1,32 +1,43 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
-// security headers — applied to every response via Next.js middleware.ts
-// When called from middleware, the same nonce must be propagated on the
-// incoming request via x-nonce header so Next.js applies it to its inline
-// scripts. Otherwise the browser refuses to execute Next.js's bootstrap.
-export function applySecurityHeaders(res: Response, pathname: string, nonce?: string): Response {
+// security headers — applied to every response via Next.js middleware.ts.
+// Admin pages use a nonce CSP; middleware must also place that CSP on the
+// forwarded request so Next.js can add matching nonces to its bootstrap scripts.
+export function buildContentSecurityPolicy(pathname: string, nonce?: string): string {
   const effectiveNonce = nonce ?? crypto.randomUUID().replace(/-/g, "");
   const isAdmin = pathname.startsWith("/admin");
-  const csp = [
+  const isDev = process.env.NODE_ENV === "development";
+  const scriptSrc = (
+    isDev
+      ? ["'self'", "'unsafe-eval'", "'unsafe-inline'", "https://challenges.cloudflare.com", "https://static.cloudflareinsights.com"]
+      : isAdmin
+        ? ["'self'", `'nonce-${effectiveNonce}'`, "https://challenges.cloudflare.com", "https://static.cloudflareinsights.com"]
+        : ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com", "https://static.cloudflareinsights.com"]
+  ).join(" ");
+  return [
     `default-src 'self'`,
-    // 'strict-dynamic' lets scripts loaded by the trusted nonce-tagged
-    // bootstrap script run without their own nonce (Next.js dynamic imports).
-    isAdmin
-      ? `script-src 'nonce-${effectiveNonce}' 'strict-dynamic'`
-      : `script-src 'nonce-${effectiveNonce}' 'strict-dynamic'`,
+    `script-src ${scriptSrc}`,
     // Tailwind v4 inlines styles; revisit when migrating to CSS modules
     `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: blob: https://avatars.githubusercontent.com https://github.com`,
+    `img-src 'self' data: blob: https://avatars.githubusercontent.com https://github.com https://*.mzstatic.com`,
     // Turnstile needs connect; map tiles (public) need openfreemap.
     isAdmin
       ? `connect-src 'self' https://challenges.cloudflare.com`
       : `connect-src 'self' https://challenges.cloudflare.com https://tiles.openfreemap.org https://api.openfreemap.org`,
+    // MapLibre runs its parser/renderer in a blob worker on public pages.
+    isAdmin ? `worker-src 'none'` : `worker-src 'self' blob:`,
     // Turnstile widget renders inside a cf-hosted iframe; map widget needs none.
     isAdmin ? `frame-src https://challenges.cloudflare.com` : `frame-src 'none'`,
     `frame-ancestors ${isAdmin ? "'none'" : "'self'"}`,
     `base-uri 'self'`,
     `form-action 'self'`,
   ].join("; ");
+}
+
+export function applySecurityHeaders(res: Response, pathname: string, nonce?: string): Response {
+  const effectiveNonce = nonce ?? crypto.randomUUID().replace(/-/g, "");
+  const isAdmin = pathname.startsWith("/admin");
+  const csp = buildContentSecurityPolicy(pathname, effectiveNonce);
   res.headers.set("Content-Security-Policy", csp);
   res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
   res.headers.set("X-Frame-Options", isAdmin ? "DENY" : "SAMEORIGIN");
@@ -93,22 +104,22 @@ export async function requireAdmin(req: Request, env: AdminEnv): Promise<{ crede
   // L3 — passkey session cookie
   const cookie = req.headers.get("cookie")?.match(/__Host-pf_admin=([^;]+)/)?.[1];
   if (!cookie) return new Response("Login required", { status: 401 });
-  const { verifySession } = await import("./session");
+  const { verifySession, verifyStoredSession } = await import("./session");
   const session = await verifySession(decodeURIComponent(cookie), env.ADMIN_COOKIE_SECRET);
   if (!session) return new Response("Session expired", { status: 401 });
+  if (!(await verifyStoredSession(env.DB, session))) return new Response("Session expired", { status: 401 });
 
   // L4 — origin allowlist on writes
   if (req.method !== "GET") {
     const origin = req.headers.get("origin");
-    if (origin && new URL(origin).host !== new URL(req.url).host) {
+    if (!origin || new URL(origin).host !== new URL(req.url).host) {
       return new Response("Bad origin", { status: 403 });
     }
   }
 
   // L3 — sensitive op re-prompt (<60s fresh assertion)
   if (req.method !== "GET" && SENSITIVE.test(new URL(req.url).pathname)) {
-    const lastFresh = req.headers.get("x-passkey-fresh-at");
-    if (!lastFresh || Date.now() - parseInt(lastFresh) > 60_000) {
+    if (!session.freshAt || Date.now() - session.freshAt > 60_000) {
       return new Response("Fresh passkey assertion required", { status: 401 });
     }
   }

@@ -69,8 +69,22 @@ export const ThemeToggleButton2 = ({
   useEffect(() => setMounted(true), []);
 
   // suppressHydrationWarning: skip until mounted so the SVG renders the correct
-  // dark/light state on first paint without flicker.
+  // dark/light state on first paint without flicker. Before mount, default to
+  // the light-state numeric values explicitly so framer-motion doesn't pass
+  // `false` to the SVG `r` attribute (rejected by the SVG parser).
+  const sunR = 8;
+  const sunCyOffset = 0;
+  const sunCxOffset = 0;
   const isDark = mounted ? resolvedTheme === "dark" : false;
+  const circleR = isDark ? 10 : sunR;
+  const sunTranslateY = isDark ? 10 : sunCyOffset;
+  const sunTranslateX = isDark ? -12 : sunCxOffset;
+  const clipPosition = { y: sunTranslateY, x: sunTranslateX };
+  const sunState = {
+    rotate: isDark ? -100 : 0,
+    scale: isDark ? 0.5 : 1,
+    opacity: isDark ? 0 : 1,
+  };
 
   const toggle = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
@@ -121,24 +135,24 @@ export const ThemeToggleButton2 = ({
       >
         <clipPath id="skiper-btn-2">
           <motion.path
-            animate={{ y: isDark ? 10 : 0, x: isDark ? -12 : 0 }}
+            initial={clipPosition}
+            animate={clipPosition}
             transition={{ ease: "easeInOut", duration: 0.35 }}
             d="M0-5h30a1 1 0 0 0 9 13v24H0Z"
           />
         </clipPath>
         <g clipPath="url(#skiper-btn-2)">
           <motion.circle
-            animate={{ r: isDark ? 10 : 8 }}
+            initial={{ r: circleR }}
+            animate={{ r: circleR }}
             transition={{ ease: "easeInOut", duration: 0.35 }}
             cx="16"
             cy="16"
+            r={circleR}
           />
           <motion.g
-            animate={{
-              rotate: isDark ? -100 : 0,
-              scale: isDark ? 0.5 : 1,
-              opacity: isDark ? 0 : 1,
-            }}
+            initial={sunState}
+            animate={sunState}
             transition={{ ease: "easeInOut", duration: 0.35 }}
             stroke="currentColor"
             strokeWidth="1.5"

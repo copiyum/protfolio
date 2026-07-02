@@ -20,7 +20,7 @@ export async function PUT(req: NextRequest) {
   const mime = req.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
   const buf = await req.arrayBuffer();
   try {
-    validateImage(mime, buf.byteLength);
+    validateImage(mime, buf.byteLength, buf);
   } catch (e) {
     return new Response((e as Error).message, { status: 400 });
   }

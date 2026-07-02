@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { getTurnstileSiteKey } from "@/lib/admin/runtime-env";
 import { SetupForm } from "./SetupForm";
 
 // One-time bootstrap route. Whitelisted in middleware.ts so CF-Access-passed
@@ -21,5 +22,5 @@ export default async function SetupPage() {
     .first<{ has_any: number }>();
   if (row?.has_any) redirect("/admin/login");
 
-  return <SetupForm />;
+  return <SetupForm sitekey={await getTurnstileSiteKey()} />;
 }

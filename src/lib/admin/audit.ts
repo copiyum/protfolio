@@ -8,9 +8,10 @@ export interface AuditInput {
   diff?: Record<string, unknown>;
 }
 
-export async function writeAudit(d1: D1Database, input: AuditInput): Promise<string> {
-  const id = crypto.randomUUID();
-  await d1
+export function prepareAudit(d1: D1Database, input: AuditInput, id = crypto.randomUUID()) {
+  return {
+    id,
+    statement: d1
     .prepare(
       `INSERT INTO audit_log (id, actor_credential_id, action, target_table, target_id, ip, ua, diff)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -24,7 +25,12 @@ export async function writeAudit(d1: D1Database, input: AuditInput): Promise<str
       input.ip ?? null,
       input.ua ?? null,
       input.diff ? JSON.stringify(input.diff) : null
-    )
-    .run();
-  return id;
+    ),
+  };
+}
+
+export async function writeAudit(d1: D1Database, input: AuditInput): Promise<string> {
+  const audit = prepareAudit(d1, input);
+  await audit.statement.run();
+  return audit.id;
 }

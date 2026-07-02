@@ -1,14 +1,13 @@
 "use server";
 import { updateTag } from "next/cache";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { headers } from "next/headers";
 import { SeoInput } from "../schema/seo";
-import { writeAudit } from "../audit";
+import { prepareAudit } from "../audit";
+import { requireActionAdmin } from "./_security";
 
 // Singleton row (id='singleton'). Not using generic CRUD.
 export async function getSeo(): Promise<SeoInput> {
-  const ctx = await getCloudflareContext({ async: true });
-  const db = (ctx.env as unknown as { DB: D1Database }).DB;
+  const admin = await requireActionAdmin();
+  const db = admin.env.DB;
   const row = await db.prepare("SELECT title_template, og_image, description FROM seo_defaults WHERE id = 'singleton'").first<{
     title_template: string;
     og_image: string | null;
@@ -22,26 +21,30 @@ export async function getSeo(): Promise<SeoInput> {
 }
 
 export async function setSeo(input: unknown): Promise<{ ok: true }> {
+  const admin = await requireActionAdmin({ write: true });
   const parsed = SeoInput.parse(input);
-  const ctx = await getCloudflareContext({ async: true });
-  const db = (ctx.env as unknown as { DB: D1Database }).DB;
-  const h = await headers();
-  await db.prepare(
-    `INSERT INTO seo_defaults (id, title_template, og_image, description)
-     VALUES ('singleton', ?, ?, ?)
-     ON CONFLICT(id) DO UPDATE SET
-       title_template = excluded.title_template,
-       og_image = excluded.og_image,
-       description = excluded.description,
-       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
-  ).bind(parsed.title_template, parsed.og_image ?? null, parsed.description).run();
-  await writeAudit(db, {
+  const db = admin.env.DB;
+  const audit = prepareAudit(db, {
     action: "set_seo",
     targetTable: "seo_defaults",
     targetId: "singleton",
-    actorCredentialId: h.get("x-actor-credential-id") ?? undefined,
+    actorCredentialId: admin.credentialId,
+    ip: admin.meta.ip,
+    ua: admin.meta.ua,
     diff: parsed as Record<string, unknown>,
   });
+  await db.batch([
+    db.prepare(
+      `INSERT INTO seo_defaults (id, title_template, og_image, description)
+       VALUES ('singleton', ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         title_template = excluded.title_template,
+         og_image = excluded.og_image,
+         description = excluded.description,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')`,
+    ).bind(parsed.title_template, parsed.og_image ?? null, parsed.description),
+    audit.statement,
+  ]);
   updateTag("seo");
   return { ok: true };
 }

@@ -7,7 +7,8 @@ describe("security headers", () => {
     const res = new Response("ok");
     const out = applySecurityHeaders(res, "/admin/posts");
     const h = out.headers;
-    expect(h.get("Content-Security-Policy")).toMatch(/script-src 'nonce-[^']+' 'strict-dynamic'/);
+    expect(h.get("Content-Security-Policy")).toMatch(/script-src 'self' 'nonce-[^']+' https:\/\/challenges\.cloudflare\.com https:\/\/static\.cloudflareinsights\.com/);
+    expect(h.get("Content-Security-Policy")).toMatch(/worker-src 'none'/);
     expect(h.get("Strict-Transport-Security")).toMatch(/max-age=63072000/);
     expect(h.get("X-Content-Type-Options")).toBe("nosniff");
     expect(h.get("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
@@ -22,6 +23,8 @@ describe("security headers", () => {
   it("frame-ancestors self on public", () => {
     const out = applySecurityHeaders(new Response("ok"), "/blog");
     expect(out.headers.get("Content-Security-Policy")).toMatch(/frame-ancestors 'self'/);
+    expect(out.headers.get("Content-Security-Policy")).toMatch(/script-src 'self' 'unsafe-inline'/);
+    expect(out.headers.get("Content-Security-Policy")).toMatch(/worker-src 'self' blob:/);
     expect(out.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });
 });

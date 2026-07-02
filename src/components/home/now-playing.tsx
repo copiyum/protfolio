@@ -32,7 +32,7 @@ export default function NowPlaying({ playing, title, artist, artUrl, accentColor
       {/* Album art */}
       <div className="relative size-10 shrink-0 overflow-hidden rounded-md bg-[color:var(--foreground)]/10">
         {artUrl ? (
-          <Image src={artUrl} alt={title} fill className="object-cover" unoptimized />
+          <Image src={artUrl} alt={title} fill className="object-cover" crossOrigin="anonymous" unoptimized />
         ) : (
           <div className="flex size-full items-center justify-center text-base">♪</div>
         )}

@@ -1,5 +1,6 @@
 import { deletePasskey } from "@/lib/admin/actions/passkey";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
+import Link from "next/link";
 
 interface PasskeyRow {
   credential_id: string;
@@ -21,9 +22,9 @@ export default async function PasskeysPage() {
     <div>
       <div className="mb-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Passkeys</h1>
-        <a href="/admin/passkeys/register" className="rounded bg-[color:var(--foreground)] px-3 py-1 text-sm text-[color:var(--background)]">
+        <Link href="/admin/passkeys/register" className="rounded bg-[color:var(--foreground)] px-3 py-1 text-sm text-[color:var(--background)]">
           + Register
-        </a>
+        </Link>
       </div>
       <p className="mb-4 text-sm text-[color:var(--foreground)]/60">
         {count} registered. Minimum 2 required for safety.
@@ -59,7 +60,7 @@ export default async function PasskeysPage() {
                       }}
                     >
                       <button
-                        disabled={count <= 1}
+                        disabled={count <= 2}
                         className="text-xs text-red-500 hover:underline disabled:opacity-30"
                       >
                         Delete

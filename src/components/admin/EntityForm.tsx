@@ -1,29 +1,29 @@
 "use client";
-import { useForm } from "react-hook-form";
+import { useForm, type DefaultValues, type FieldValues, type Path } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { z } from "zod";
-import { z as zv } from "zod";
 
-export function EntityForm<S extends z.ZodTypeAny>({
+export function EntityForm<S extends z.ZodObject<z.ZodRawShape>>({
   schema,
   defaultValues,
   onSubmit,
   submitLabel = "Save",
 }: {
   schema: S;
-  defaultValues: z.infer<S>;
-  onSubmit: (v: z.infer<S>) => Promise<void>;
+  defaultValues: z.input<S>;
+  onSubmit: (v: z.output<S>) => Promise<void>;
   submitLabel?: string;
 }) {
-  // zod v4: output<S> is the safe "value" type; cast to any for react-hook-form
-  // generics that still expect FieldValues.
-  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<any>({
-    resolver: zodResolver(schema as any),
-    defaultValues,
+  type Input = z.input<S> & FieldValues;
+  type Output = z.output<S> & FieldValues;
+
+  const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<Input, unknown, Output>({
+    resolver: zodResolver(schema),
+    defaultValues: defaultValues as DefaultValues<Input>,
   });
-  const fields = Object.keys((schema as unknown as { shape: Record<string, unknown> }).shape ?? {});
+  const fields = Object.keys(schema.shape);
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-xl space-y-3">
+    <form onSubmit={handleSubmit((values) => onSubmit(values))} className="max-w-xl space-y-3">
       {fields.map((k) => {
         const err = (errors as Record<string, { message?: string } | undefined>)[k]?.message;
         return (
@@ -31,7 +31,7 @@ export function EntityForm<S extends z.ZodTypeAny>({
             <label className="mb-1 block text-xs font-medium uppercase tracking-wider text-[color:var(--foreground)]/60">
               {k}
             </label>
-            <input {...register(k)} className="w-full rounded border border-[color:var(--foreground)]/20 bg-transparent px-2 py-1 text-sm" />
+            <input {...register(k as Path<Input>)} className="w-full rounded border border-[color:var(--foreground)]/20 bg-transparent px-2 py-1 text-sm" />
             {err && <p className="mt-1 text-xs text-red-500">{err}</p>}
           </div>
         );

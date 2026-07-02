@@ -50,7 +50,7 @@ export async function verifyRegistration(response: unknown, expectedChallenge: s
   });
 }
 
-export async function makeAuthOptions(passkeys: PasskeyRecord[]) {
+export async function makeAuthOptions() {
   return generateAuthenticationOptions({
     rpID: RP_ID,
     // Omit allowCredentials to enable resident-key / discoverable-credential

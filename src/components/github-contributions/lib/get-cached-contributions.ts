@@ -14,6 +14,11 @@ export interface ContributionsData {
   total: number;
 }
 
+interface ContributionsApiResponse {
+  contributions?: unknown;
+  total?: { lastYear?: unknown };
+}
+
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -25,6 +30,19 @@ export function formatMonth(m: number): string {
   return MONTHS[m].toUpperCase();
 }
 
+function isContributionDay(value: unknown): value is ContributionDay {
+  if (!value || typeof value !== "object") return false;
+  const day = value as { date?: unknown; count?: unknown; level?: unknown };
+  return (
+    typeof day.date === "string" &&
+    typeof day.count === "number" &&
+    typeof day.level === "number" &&
+    Number.isInteger(day.level) &&
+    day.level >= 0 &&
+    day.level <= 4
+  );
+}
+
 export async function fetchContributions(
   username: string,
 ): Promise<ContributionsData | null> {
@@ -34,11 +52,15 @@ export async function fetchContributions(
       { next: { revalidate: 86400 } },
     );
     if (!res.ok) return null;
-    const data = await res.json();
-    const days: ContributionDay[] = data?.contributions ?? [];
+    const data = (await res.json()) as ContributionsApiResponse;
+    const days = Array.isArray(data.contributions)
+      ? data.contributions.filter(isContributionDay)
+      : [];
     if (!days.length) return null;
     const total =
-      data?.total?.lastYear ?? days.reduce((a, d) => a + d.count, 0);
+      typeof data.total?.lastYear === "number"
+        ? data.total.lastYear
+        : days.reduce((a, d) => a + d.count, 0);
     return { days, total };
   } catch {
     return null;

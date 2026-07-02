@@ -16,6 +16,20 @@ export async function consume(
   return true;
 }
 
+export async function isBlocked(
+  d1: D1Database,
+  key: string,
+  limit: number,
+  windowSec: number
+): Promise<boolean> {
+  const now = Math.floor(Date.now() / 1000);
+  const row = await d1.prepare("SELECT window_start, count FROM rate_limits WHERE scope_key = ?").bind(key).first<{ window_start: string; count: number }>();
+  if (!row) return false;
+  const winStart = parseInt(row.window_start, 10);
+  if (now - winStart >= windowSec) return false;
+  return row.count >= limit;
+}
+
 export async function reset(d1: D1Database, key: string): Promise<void> {
   await d1.prepare("DELETE FROM rate_limits WHERE scope_key = ?").bind(key).run();
 }

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import useISTClock from "@/hooks/use-ist-clock";
+import useAlbumAccent from "@/hooks/use-album-accent";
 import { bentoCustomCell } from "@/data/bento";
 import NowPlaying from "@/components/home/now-playing";
 import type { NowPlayingData } from "@/app/api/now-playing/route";
@@ -39,15 +40,14 @@ function GlowCardGrid({ children }: { children: React.ReactNode }) {
 				{
 					"--card-radius": "16px",
 					"--card-icon-blur": "25px",
-					"--card-icon-saturate": "5",
-					"--card-icon-brightness": "1.3",
+					"--card-icon-brightness": "1.18",
 					"--card-icon-scale": "4",
-					"--card-icon-opacity": "0.3",
+					"--card-icon-opacity": "0.34",
 					"--card-border-width": "3px",
 					"--card-border-blur": "10px",
-					"--card-border-saturate": "4.2",
-					"--card-border-brightness": "2.5",
-					"--card-border-contrast": "2.5",
+					"--card-border-saturate": "1.15",
+					"--card-border-brightness": "1.85",
+					"--card-border-contrast": "1.25",
 				} as React.CSSProperties
 			}
 		>
@@ -58,39 +58,41 @@ function GlowCardGrid({ children }: { children: React.ReactNode }) {
 
 function GlowCard({
 	children,
-	glowSrc,
+	glowColor,
 	className = "",
 }: {
 	children: React.ReactNode;
-	glowSrc?: string | null;
+	glowColor?: string | null;
 	className?: string;
 }) {
 	return (
 		<div
 			data-slot="glow-card"
 			className={`group/glow-card isolate @container-size relative overflow-hidden rounded-(--card-radius) bg-(--page-bg) ring-1 ring-[color:var(--card-border)] ${className}`}
+			style={
+				{
+					"--card-glow-color": glowColor ?? "transparent",
+				} as React.CSSProperties
+			}
 		>
 			<div className="flex size-full overflow-hidden rounded-(--card-radius) [clip-path:inset(0_round_var(--card-radius))]">
-				{/* Glow source — blurred album art, pointer-tracked; opacity-gated by hover so the bleed only shows when the cursor is on the card */}
-				{glowSrc && (
+				{glowColor && (
 					<div
 						className={[
 							"pointer-events-none absolute inset-0 flex items-center justify-center",
 							"translate-x-[calc(var(--pointer-x,-10)*35cqi)] translate-y-[calc(var(--pointer-y,-10)*35cqh)] translate-z-0 scale-(--card-icon-scale)",
-							"blur-(--card-icon-blur) brightness-(--card-icon-brightness) saturate-(--card-icon-saturate)",
+							"blur-(--card-icon-blur) brightness-(--card-icon-brightness)",
 							"opacity-0 group-hover/glow-card:opacity-(--card-icon-opacity) transition-[opacity] duration-(--motion-micro) will-change-[transform,filter,opacity]",
 						].join(" ")}
 					>
-						{/* eslint-disable-next-line @next/next/no-img-element */}
-						<img src={glowSrc} alt="" className="size-20 object-cover" />
+						<div className="size-20 rounded-[28px] bg-[color:var(--card-glow-color)]" />
 					</div>
 				)}
 
 				<div className="z-[1] flex flex-1 flex-col p-3">{children}</div>
 			</div>
 
-			{/* Saturated border-bleed — backdrop-filter amplifies the glow into the edge; opacity-gated to match the glow source */}
-			{glowSrc && (
+			{glowColor && (
 				<div
 					className={[
 						"pointer-events-none absolute inset-0 translate-z-0 rounded-(--card-radius)",
@@ -166,11 +168,15 @@ export default function BentoBlock() {
 	const [np, setNp] = useState<NowPlayingData | null>(null);
 
 	useEffect(() => {
-		const fetchNp = () =>
-			fetch("/api/now-playing")
-				.then((r) => r.json())
-				.then(setNp)
-				.catch(() => {});
+		const fetchNp = async () => {
+			try {
+				const res = await fetch("/api/now-playing");
+				const data = (await res.json()) as NowPlayingData;
+				setNp(data);
+			} catch {
+				// Keep the existing cell content if the public music endpoint flakes.
+			}
+		};
 		fetchNp();
 		const id = setInterval(fetchNp, POLL_INTERVAL);
 		return () => clearInterval(id);
@@ -180,7 +186,8 @@ export default function BentoBlock() {
 		userOffset === 0
 			? "same timezone"
 			: `${Math.abs(userOffset)}h ${userOffset > 0 ? "ahead of" : "behind"} you`;
-	const nowPlayingGlow = np?.playing && np.artUrl ? np.artUrl : null;
+	const nowPlayingArt = np?.playing && np.artUrl ? np.artUrl : null;
+	const albumAccent = useAlbumAccent(nowPlayingArt);
 
 	return (
 		<GlowCardGrid>
@@ -209,15 +216,15 @@ export default function BentoBlock() {
 				<CellSub>{bentoCustomCell.sub}</CellSub>
 			</GlowCard>
 
-			{/* Now Playing — full width, album art IS the glow source */}
-			<GlowCard glowSrc={nowPlayingGlow} className="col-span-3">
+			{/* Now Playing — full width, album art drives the sampled glow color. */}
+			<GlowCard glowColor={albumAccent} className="col-span-3">
 				<CellLabel>Now Playing</CellLabel>
 				<NowPlaying
 					playing={np?.playing ?? false}
 					title={np?.title ?? ""}
 					artist={np?.artist ?? ""}
 					artUrl={np?.artUrl ?? null}
-					accentColor={np?.accentColor ?? null}
+					accentColor={albumAccent ?? np?.accentColor ?? null}
 				/>
 			</GlowCard>
 		</GlowCardGrid>

@@ -1,5 +1,4 @@
 "use client";
-import Image from "next/image";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useTheme } from "next-themes";
@@ -16,7 +15,6 @@ export default function ProfileBlock({ onActiveChange }: ProfileBlockProps) {
   // Start UNCIRCLED (grey track only) and with bio UNHIGHLIGHTED by default
   const [phase, setPhase] = useState<"idle" | "loading" | "loaded" | "unloading">("idle");
   const [innerHovered, setInnerHovered] = useState(false);
-  const [imgError, setImgError] = useState(false);
   const timer = useRef<NodeJS.Timeout | null>(null);
   const { resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -87,18 +85,7 @@ export default function ProfileBlock({ onActiveChange }: ProfileBlockProps) {
            onMouseLeave={handleMouseLeave}
            onTouchStart={startLoad}
       >
-        {imgError ? (
-          <div className={styles.avatarFallback} aria-label="Sarang">S</div>
-        ) : (
-          <Image
-            src={phase === "loaded" ? "/assets/profile/pfp_dark.png" : "/assets/profile/pfp.png"}
-            alt="Profile picture"
-            width={64}
-            height={64}
-            className={styles.avatar}
-            onError={() => setImgError(true)}
-          />
-        )}
+        <div className={styles.avatarFallback} aria-label="Sarang">S</div>
   <svg className={styles.ringSvg} viewBox="0 0 80 80" aria-hidden suppressHydrationWarning>
           <circle className={styles.ringTrack} cx="40" cy="40" r="36" {...(currentTheme && { 'data-theme': currentTheme })} />
           <circle

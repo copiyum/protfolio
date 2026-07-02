@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { applySecurityHeaders, enforceAdminIpRate, verifyCfAccessJwt } from "@/lib/admin/middleware";
-import { verifySession } from "@/lib/admin/session";
+import { applySecurityHeaders, buildContentSecurityPolicy, enforceAdminIpRate, verifyCfAccessJwt } from "@/lib/admin/middleware";
+import { renewStoredSession, signSession, verifySession, verifyStoredSession, type SessionPayload } from "@/lib/admin/session";
 
 const SESSION_COOKIE = "__Host-pf_admin";
+const SESSION_TTL_MS = 15 * 60 * 1000;
+const SESSION_RENEW_THRESHOLD_MS = 5 * 60 * 1000;
 const PUBLIC_ADMIN_PATHS = /^\/admin\/(login|setup)\/?$/;
+const SECOND_PASSKEY_PATH = /^\/admin\/passkeys\/register\/?$/;
 
 // Cloudflare auto-injects the Web Analytics beacon into every page on the zone
 // via the edge (before our Worker runs). The bundled `integrity` SRI hash no
@@ -37,6 +40,16 @@ async function stripCfBeacon(response: Response): Promise<Response> {
   });
 }
 
+function expireSessionCookie(res: NextResponse): void {
+  res.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    secure: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
 interface AdminEdgeEnv {
   DB: D1Database;
   ADMIN_COOKIE_SECRET: string;
@@ -47,10 +60,13 @@ interface AdminEdgeEnv {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdmin = pathname.startsWith("/admin");
+  let adminEnv: AdminEdgeEnv | null = null;
+  let renewal: { session: SessionPayload; expiresAt: string } | null = null;
 
   if (isAdmin) {
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as AdminEdgeEnv;
+    adminEnv = env;
 
     // L5 — per-IP rate limit on /admin/login + /admin/setup only (not all /admin/*
     // because Next.js RSC fans out ~10 fetches per page load, which would self-DDoS).
@@ -73,10 +89,21 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL("/admin/login", request.url));
       }
       const session = await verifySession(cookie, env.ADMIN_COOKIE_SECRET);
-      if (!session) {
+      if (!session || !(await verifyStoredSession(env.DB, session))) {
         const res = NextResponse.redirect(new URL("/admin/login", request.url));
-        res.cookies.delete(SESSION_COOKIE);
+        expireSessionCookie(res);
         return res;
+      }
+      const passkeyCount = await env.DB.prepare("SELECT COUNT(*) AS c FROM passkeys").first<{ c: number }>();
+      if ((passkeyCount?.c ?? 0) < 2 && !SECOND_PASSKEY_PATH.test(pathname)) {
+        return NextResponse.redirect(new URL("/admin/passkeys/register?required=1", request.url));
+      }
+
+      const expiresAtMs = new Date(session.expiresAt).getTime();
+      if (session.sessionId && expiresAtMs - Date.now() < SESSION_RENEW_THRESHOLD_MS) {
+        const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
+        await renewStoredSession(env.DB, session.sessionId, expiresAt);
+        renewal = { session, expiresAt };
       }
     }
   }
@@ -84,12 +111,23 @@ export async function middleware(request: NextRequest) {
   // Generate one nonce per request, propagate via x-nonce request header so
   // Next.js applies it to its inline scripts, then reuse it on the response
   // CSP header so the browser trusts them.
-  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const nonce = crypto.randomUUID().replace(/-/g, "");
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", buildContentSecurityPolicy(pathname, nonce));
 
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   applySecurityHeaders(response, pathname, nonce);
+  if (renewal && adminEnv) {
+    const cookie = await signSession({ ...renewal.session, expiresAt: renewal.expiresAt }, adminEnv.ADMIN_COOKIE_SECRET);
+    response.cookies.set(SESSION_COOKIE, cookie, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "lax",
+      path: "/",
+      maxAge: SESSION_TTL_MS / 1000,
+    });
+  }
 
   // Strip Cloudflare Web Analytics beacon from HTML responses (zone-injected,
   // not via our Worker, so we have to undo it after the page renders).

@@ -1,5 +1,6 @@
 import { logout } from "@/lib/admin/actions/auth";
 import { listFlags } from "@/lib/admin/actions/feature-flags";
+import Link from "next/link";
 
 export default async function AdminDashboard() {
   const flags = await listFlags().catch(() => []);
@@ -21,13 +22,13 @@ export default async function AdminDashboard() {
         <div className="rounded border border-[color:var(--foreground)]/10 p-4">
           <h2 className="text-xs uppercase tracking-wider text-[color:var(--foreground)]/60">Recent Writes</h2>
           <p className="mt-2 text-sm text-[color:var(--foreground)]/60">
-            <a href="/admin/audit-log" className="underline">View audit log →</a>
+            <Link href="/admin/audit-log" className="underline">View audit log →</Link>
           </p>
         </div>
         <div className="rounded border border-[color:var(--foreground)]/10 p-4">
           <h2 className="text-xs uppercase tracking-wider text-[color:var(--foreground)]/60">Passkeys</h2>
           <p className="mt-2 text-sm">
-            <a href="/admin/passkeys" className="underline">Manage →</a>
+            <Link href="/admin/passkeys" className="underline">Manage →</Link>
           </p>
         </div>
       </div>

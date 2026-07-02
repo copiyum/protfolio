@@ -1,4 +1,4 @@
-import type { ZodTypeAny } from "zod";
+import type { z } from "zod";
 
 import { listPosts, getPost, createPost, updatePost, deletePost } from "@/lib/admin/actions/posts";
 import { listProjects, getProject, createProject, updateProject, deleteProject } from "@/lib/admin/actions/projects";
@@ -27,7 +27,7 @@ type CrudActions = {
 export interface EntityConfig {
   label: string;
   actions: CrudActions;
-  schema: ZodTypeAny;
+  schema: z.ZodObject<z.ZodRawShape>;
   columns: { key: string; label: string }[];
 }
 
@@ -41,7 +41,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updatePost as CrudActions["update"],
       remove: deletePost as CrudActions["remove"],
     },
-    schema: PostInput as ZodTypeAny,
+    schema: PostInput,
     columns: [
       { key: "title", label: "Title" },
       { key: "slug", label: "Slug" },
@@ -57,7 +57,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updateProject as CrudActions["update"],
       remove: deleteProject as CrudActions["remove"],
     },
-    schema: ProjectInput as ZodTypeAny,
+    schema: ProjectInput,
     columns: [
       { key: "title", label: "Title" },
       { key: "period", label: "Period" },
@@ -72,7 +72,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updateExperience as CrudActions["update"],
       remove: deleteExperience as CrudActions["remove"],
     },
-    schema: ExperienceInput as ZodTypeAny,
+    schema: ExperienceInput,
     columns: [
       { key: "company", label: "Company" },
       { key: "role", label: "Role" },
@@ -88,7 +88,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updateSocialLink as CrudActions["update"],
       remove: deleteSocialLink as CrudActions["remove"],
     },
-    schema: SocialLinkInput as ZodTypeAny,
+    schema: SocialLinkInput,
     columns: [
       { key: "label", label: "Label" },
       { key: "href", label: "URL" },
@@ -103,7 +103,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updateTech as CrudActions["update"],
       remove: deleteTech as CrudActions["remove"],
     },
-    schema: TechInput as ZodTypeAny,
+    schema: TechInput,
     columns: [
       { key: "name", label: "Name" },
       { key: "category", label: "Category" },
@@ -118,7 +118,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updateBentoCell as CrudActions["update"],
       remove: deleteBentoCell as CrudActions["remove"],
     },
-    schema: BentoCellInput as ZodTypeAny,
+    schema: BentoCellInput,
     columns: [
       { key: "kind", label: "Kind" },
       { key: "label", label: "Label" },
@@ -134,7 +134,7 @@ export const registry: Record<string, EntityConfig> = {
       update: updateNav as CrudActions["update"],
       remove: deleteNav as CrudActions["remove"],
     },
-    schema: NavItemInput as ZodTypeAny,
+    schema: NavItemInput,
     columns: [
       { key: "label", label: "Label" },
       { key: "href", label: "Href" },

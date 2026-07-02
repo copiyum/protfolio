@@ -20,6 +20,7 @@ export async function verifyTurnstile(
   token: string | null | undefined,
   remoteIp: string | null,
   secret: string,
+  expected?: { action?: string; hostname?: string | null },
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   if (!token) return { ok: false, reason: "missing-token" };
   const body = new URLSearchParams({ secret, response: token });
@@ -30,6 +31,14 @@ export async function verifyTurnstile(
   });
   if (!res.ok) return { ok: false, reason: `siteverify-http-${res.status}` };
   const json = (await res.json()) as SiteverifyResponse;
-  if (json.success) return { ok: true };
+  if (json.success) {
+    if (expected?.hostname && json.hostname !== expected.hostname) {
+      return { ok: false, reason: "hostname-mismatch" };
+    }
+    if (expected?.action && json.action !== expected.action) {
+      return { ok: false, reason: "action-mismatch" };
+    }
+    return { ok: true };
+  }
   return { ok: false, reason: json["error-codes"].join(",") || "siteverify-failed" };
 }

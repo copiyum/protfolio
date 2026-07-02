@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OptionalHttpsUrl } from "./url";
 
 export const PostInput = z.object({
   id: z.string().min(1),
@@ -7,7 +8,7 @@ export const PostInput = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   summary: z.string().max(500).default(""),
   tags: z.array(z.string().min(1)).default([]),
-  cover: z.url().nullable().optional(),
+  cover: OptionalHttpsUrl,
   content: z.array(z.string()).default([]),
   published: z.boolean().default(true),
 });

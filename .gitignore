@@ -15,6 +15,7 @@
 
 # next.js
 /.next/
+/.open-next/
 /.opennext/
 /out/
 
@@ -48,3 +49,6 @@ next-env.d.ts
 motion-audits/
 .superpowers/
 .token-savior-cache.json
+.commandcode/
+excalidraw.log
+wrangler.t

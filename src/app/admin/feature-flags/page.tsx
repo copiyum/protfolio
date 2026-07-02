@@ -1,6 +1,5 @@
 import { getSeo, setSeo } from "@/lib/admin/actions/seo";
 import { listFlags, setFlag, deleteFlag } from "@/lib/admin/actions/feature-flags";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
 
 export default async function FeatureFlagsPage() {
   const flags = await listFlags().catch(() => []);

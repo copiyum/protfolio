@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { registry, ENTITY_KEYS } from "@/lib/admin/registry";
+import { registry } from "@/lib/admin/registry";
 import { EntityForm } from "@/components/admin/EntityForm";
 
 export async function generateStaticParams() {

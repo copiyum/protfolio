@@ -12,10 +12,28 @@ describe("turnstile siteverify", () => {
 
   it("accepts siteverify success", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify({ success: true, challenge_ts: "2026-07-02T00:00:00Z", hostname: "sarang.dev" }), { status: 200 }),
+      new Response(JSON.stringify({ success: true, challenge_ts: "2026-07-02T00:00:00Z", hostname: "sarang.dev", action: "login" }), { status: 200 }),
     );
-    const r = await verifyTurnstile("tok", "1.2.3.4", "secret");
+    const r = await verifyTurnstile("tok", "1.2.3.4", "secret", { hostname: "sarang.dev", action: "login" });
     expect(r.ok).toBe(true);
+  });
+
+  it("rejects siteverify success for a different hostname", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, challenge_ts: "2026-07-02T00:00:00Z", hostname: "evil.example", action: "login" }), { status: 200 }),
+    );
+    const r = await verifyTurnstile("tok", "1.2.3.4", "secret", { hostname: "sarang.dev", action: "login" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("hostname-mismatch");
+  });
+
+  it("rejects siteverify success for a different action", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify({ success: true, challenge_ts: "2026-07-02T00:00:00Z", hostname: "sarang.dev", action: "register" }), { status: 200 }),
+    );
+    const r = await verifyTurnstile("tok", "1.2.3.4", "secret", { hostname: "sarang.dev", action: "login" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.reason).toBe("action-mismatch");
   });
 
   it("rejects siteverify failure with error codes", async () => {
