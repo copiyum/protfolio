@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import { startRegistration } from "@simplewebauthn/browser";
 import { beginRegistration, completeRegistration } from "@/lib/admin/actions/auth";
 
 export default function RegisterPasskeyPage() {
@@ -12,13 +13,12 @@ export default function RegisterPasskeyPage() {
     try {
       setBusy(true);
       setError(null);
-      const opts = await beginRegistration();
-      // @ts-expect-error WebAuthn is browser-only
-      const cred = await navigator.credentials.create({ publicKey: opts });
+      const optionsJSON = await beginRegistration("add");
+      const responseJSON = await startRegistration({ optionsJSON });
       const fd = new FormData();
-      fd.set("response", JSON.stringify(cred));
+      fd.set("response", JSON.stringify(responseJSON));
       fd.set("name", name);
-      await completeRegistration(fd);
+      await completeRegistration(fd, "add");
       window.location.href = "/admin/passkeys";
     } catch (e) {
       setError(e instanceof Error ? e.message : "Registration failed");

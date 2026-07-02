@@ -21,6 +21,7 @@ declare global {
           appearance?: "always" | "execute" | "interaction-only";
           execution?: "render" | "execute";
           action?: string;
+          parentOrigin?: string;
           callback: (token: string) => void;
           "error-callback"?: () => void;
           "expired-callback"?: () => void;
@@ -58,9 +59,10 @@ export interface TurnstileWidgetProps {
   sitekey: string;
   action: "login" | "register";
   onToken: (token: string) => void;
+  onError?: () => void;
 }
 
-export function TurnstileWidget({ sitekey, action, onToken }: TurnstileWidgetProps) {
+export function TurnstileWidget({ sitekey, action, onToken, onError }: TurnstileWidgetProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const widgetIdRef = useRef<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -74,16 +76,33 @@ export function TurnstileWidget({ sitekey, action, onToken }: TurnstileWidgetPro
           sitekey,
           size: "flexible",
           appearance: "interaction-only",
-          execution: "execute",
+          // execution: "render" runs the challenge immediately on mount.
+          // Previously "execute" required an explicit turnstile.execute() call,
+          // which the disabled login button could never make — deadlocking the form.
+          execution: "render",
+          // The admin renders inside Cloudflare Access's auth UI iframe
+          // (floral-tree-4100.cloudflareaccess.com) when Service Auth is on.
+          // Turnstile's iframe (challenges.cloudflare.com) auto-detects its
+          // parent window origin and sometimes picks its own origin as the
+          // postMessage targetOrigin, which the browser rejects as a
+          // cross-origin mismatch — the token callback never fires. Pin
+          // parentOrigin to the address-bar origin so the callback path works.
+          parentOrigin: typeof window !== "undefined" ? `${window.location.protocol}//${window.location.host}` : undefined,
           action,
           callback: onToken,
-          "error-callback": () => onToken(""),
+          "error-callback": () => {
+            onToken("");
+            onError?.();
+          },
           "expired-callback": () => onToken(""),
         });
         setReady(true);
       })
       .catch(() => {
-        // Surface as empty token — server-side verify will reject and audit it.
+        // Script failed to load (network error or content blocker). Surface via
+        // onError so the form can warn the user; server-side verify will still
+        // reject empty tokens.
+        onError?.();
       });
     return () => {
       cancelled = true;
@@ -95,7 +114,14 @@ export function TurnstileWidget({ sitekey, action, onToken }: TurnstileWidgetPro
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sitekey, action]);
 
-  return <div ref={containerRef} data-turnstile-ready={ready ? "1" : "0"} hidden />;
+  return (
+    <div
+      ref={containerRef}
+      data-turnstile-ready={ready ? "1" : "0"}
+      aria-hidden="true"
+      style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }}
+    />
+  );
 }
 
 export function getTurnstileSiteKey(): string {

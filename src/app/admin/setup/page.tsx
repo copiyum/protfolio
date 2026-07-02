@@ -1,63 +1,25 @@
-"use client";
-import { useState } from "react";
-import { beginRegistration, completeRegistration } from "@/lib/admin/actions/auth";
-import { TurnstileWidget, getTurnstileSiteKey } from "@/components/admin/TurnstileWidget";
+import { redirect } from "next/navigation";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { SetupForm } from "./SetupForm";
 
-export default function SetupPage() {
-  const [name, setName] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [turnstileToken, setTurnstileToken] = useState<string>("");
+// One-time bootstrap route. Whitelisted in middleware.ts so CF-Access-passed
+// users can reach it before they have any credentials. After a passkey is
+// registered, anyone hitting this path should be sent to /admin/login — both
+// for UX and so a stale tab doesn't offer a re-register form that the server
+// would then refuse at the action layer.
+export const dynamic = "force-dynamic";
 
-  async function register(e: React.FormEvent) {
-    e.preventDefault();
-    if (!turnstileToken) {
-      setError("Bot challenge not solved");
-      return;
-    }
-    try {
-      setBusy(true);
-      setError(null);
-      const opts = await beginRegistration();
-      // @ts-expect-error — WebAuthn is browser-only
-      const cred = await navigator.credentials.create({ publicKey: opts });
-      const fd = new FormData();
-      fd.set("response", JSON.stringify(cred));
-      fd.set("name", name);
-      fd.set("cf-turnstile-response", turnstileToken);
-      await completeRegistration(fd);
-      window.location.href = "/admin";
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Registration failed");
-      setBusy(false);
-    }
-  }
+interface AdminEdgeEnv {
+  DB: D1Database;
+}
 
-  const sitekey = getTurnstileSiteKey();
+export default async function SetupPage() {
+  const ctx = await getCloudflareContext({ async: true });
+  const env = ctx.env as unknown as AdminEdgeEnv;
+  const row = await env.DB
+    .prepare("SELECT EXISTS(SELECT 1 FROM passkeys LIMIT 1) AS has_any")
+    .first<{ has_any: number }>();
+  if (row?.has_any) redirect("/admin/login");
 
-  return (
-    <div className="mx-auto max-w-md p-8">
-      <h1 className="mb-4 text-2xl font-semibold">Setup — Register First Passkey</h1>
-      {error && <p className="mb-4 rounded border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-500">{error}</p>}
-      <form onSubmit={register} className="space-y-3">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Device name (e.g. MacBook Touch ID)"
-          className="w-full rounded border border-[color:var(--foreground)]/20 bg-transparent px-2 py-1 text-sm"
-          required
-        />
-        <button
-          type="submit"
-          disabled={busy || !turnstileToken}
-          className="w-full rounded bg-[color:var(--foreground)] px-4 py-2 text-[color:var(--background)] disabled:opacity-50"
-        >
-          {busy ? "Awaiting authenticator…" : "Register"}
-        </button>
-      </form>
-      {sitekey && (
-        <TurnstileWidget sitekey={sitekey} action="register" onToken={setTurnstileToken} />
-      )}
-    </div>
-  );
+  return <SetupForm />;
 }

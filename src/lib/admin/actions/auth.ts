@@ -23,21 +23,83 @@ async function getEnv(): Promise<AdminEnv> {
   return ctx.env as unknown as AdminEnv;
 }
 
-export async function beginRegistration() {
-  const opts = await makeRegistrationOptions();
-  const challenge = Buffer.from(opts.challenge).toString("base64url");
+// Registration flows:
+//   "bootstrap" — first-ever passkey setup. Only succeeds if the passkeys
+//                 table is empty. Reached via /admin/setup, which is in the
+//                 middleware's PUBLIC_ADMIN_PATHS so CF-Access-passed users
+//                 can hit it before they have credentials.
+//   "add"       — adding an additional passkey to an existing account.
+//                 Requires an active session cookie. Reached via
+//                 /admin/passkeys/register (gated by middleware).
+export type RegistrationMode = "bootstrap" | "add";
+
+async function assertBootstrapPossible(env: AdminEnv): Promise<void> {
+  const row = await env.DB
+    .prepare("SELECT EXISTS(SELECT 1 FROM passkeys LIMIT 1) AS has_any")
+    .first<{ has_any: number }>();
+  if (row?.has_any) {
+    throw new Error("Already set up — sign in to add more passkeys.");
+  }
+}
+
+async function assertAddSession(env: AdminEnv): Promise<{ credentialId: string }> {
   const jar = await cookies();
-  jar.set("pf_reg_challenge", challenge, {
+  const cookie = jar.get(COOKIE_NAME)?.value;
+  if (!cookie) throw new Error("Sign in required to add a passkey.");
+  const session = await verifySession(cookie, env.ADMIN_COOKIE_SECRET);
+  if (!session) throw new Error("Session expired — sign in again.");
+  return { credentialId: session.credentialId };
+}
+
+// Encode a Uint8Array as base64url. Both @simplewebauthn/server's helpers and
+// Buffer's "base64url" encoding produce the same wire format, but Buffer is
+// available natively in the Worker runtime.
+function b64u(buf: Uint8Array): string {
+  return Buffer.from(buf).toString("base64url");
+}
+
+export async function beginRegistration(mode: RegistrationMode = "add") {
+  const env = await getEnv();
+  if (mode === "bootstrap") {
+    // Advisory check — the atomic insert in completeRegistration is the
+    // real security guarantee; this is just a friendly early bail.
+    await assertBootstrapPossible(env);
+  } else {
+    await assertAddSession(env);
+  }
+  const opts = await makeRegistrationOptions();
+  // Server action boundary: Next.js serializes the returned value as JSON, but
+  // PublicKeyCredentialCreationOptions contains Uint8Array fields which JSON
+  // can't represent. Convert binary fields to base64url up front so the
+  // browser-side @simplewebauthn/browser startRegistration() can decode them.
+  const json = {
+    challenge: b64u(opts.challenge),
+    rp: opts.rp,
+    user: { id: b64u(opts.user.id), name: opts.user.name, displayName: opts.user.displayName },
+    pubKeyCredParams: opts.pubKeyCredParams,
+    timeout: opts.timeout,
+    excludeCredentials: opts.excludeCredentials?.map((c) => ({
+      id: b64u(c.id),
+      type: c.type,
+      transports: c.transports,
+    })),
+    authenticatorSelection: opts.authenticatorSelection,
+    attestation: opts.attestation,
+    extensions: opts.extensions,
+    hints: opts.hints,
+  };
+  const jar = await cookies();
+  jar.set("pf_reg_challenge", b64u(opts.challenge), {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
     path: "/admin",
     maxAge: 300,
   });
-  return opts;
+  return json;
 }
 
-export async function completeRegistration(formData: FormData) {
+export async function completeRegistration(formData: FormData, mode: RegistrationMode = "add") {
   const env = await getEnv();
   const jar = await cookies();
   const hdrs = await headers();
@@ -52,6 +114,10 @@ export async function completeRegistration(formData: FormData) {
     throw new Error("Bot challenge failed");
   }
 
+  // Bootstrap flow must gate before WebAuthn verify too — otherwise an attacker
+  // can burn CPU on the verify path even if they can't insert.
+  const sessionForAudit = mode === "add" ? await assertAddSession(env) : null;
+
   const responseStr = formData.get("response") as string;
   const name = formData.get("name") as string;
   const challenge = jar.get("pf_reg_challenge")?.value;
@@ -63,17 +129,33 @@ export async function completeRegistration(formData: FormData) {
   const credentialId = reg.credential.id;
   const publicKey = reg.credential.publicKey;
   const counter = reg.credential.counter;
-  await env.DB.prepare(
-    "INSERT INTO passkeys (credential_id, public_key, counter, transports, name) VALUES (?, ?, ?, ?, ?)",
-  )
-    .bind(credentialId, publicKey, counter, JSON.stringify(reg.credential.transports ?? []), name)
+  const transports = JSON.stringify(reg.credential.transports ?? []);
+
+  // Atomic insert with bootstrap guard. WHERE NOT EXISTS collapses the
+  // count-check + insert into a single SQL statement so two concurrent
+  // bootstrap attempts can't both succeed (the second sees changes=0).
+  const insertSql =
+    mode === "bootstrap"
+      ? `INSERT INTO passkeys (credential_id, public_key, counter, transports, name)
+         SELECT ?, ?, ?, ?, ?
+         WHERE NOT EXISTS (SELECT 1 FROM passkeys LIMIT 1)`
+      : `INSERT INTO passkeys (credential_id, public_key, counter, transports, name)
+         VALUES (?, ?, ?, ?, ?)`;
+  const result = await env.DB.prepare(insertSql)
+    .bind(credentialId, publicKey, counter, transports, name)
     .run();
+  if (mode === "bootstrap" && (!result.meta || result.meta.changes === 0)) {
+    // Lost the race — another passkey was registered while we were
+    // verifying the WebAuthn response. Don't issue a session.
+    throw new Error("Already set up — sign in to add more passkeys.");
+  }
+
   jar.delete("pf_reg_challenge");
   await writeAudit(env.DB, {
     action: "passkey_register",
     targetTable: "passkeys",
     targetId: credentialId,
-    actorCredentialId: credentialId,
+    actorCredentialId: mode === "add" ? sessionForAudit!.credentialId : credentialId,
     ip,
     ua,
   });
@@ -98,15 +180,30 @@ export async function beginLogin() {
     transports: JSON.parse(r.transports),
   }));
   const opts = await makeAuthOptions(passkeys);
+  // Serialize to *JSON form (base64url Uint8Arrays) so the client can decode
+  // and pass to startAuthentication() without losing the binary fields.
+  const json = {
+    challenge: b64u(opts.challenge),
+    rpId: opts.rpId,
+    timeout: opts.timeout,
+    userVerification: opts.userVerification,
+    allowCredentials: opts.allowCredentials?.map((c) => ({
+      id: b64u(c.id),
+      type: c.type,
+      transports: c.transports,
+    })),
+    extensions: opts.extensions,
+    hints: opts.hints,
+  };
   const jar = await cookies();
-  jar.set("pf_assert_challenge", Buffer.from(opts.challenge).toString("base64url"), {
+  jar.set("pf_assert_challenge", b64u(opts.challenge), {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
     path: "/admin",
     maxAge: 300,
   });
-  return opts;
+  return json;
 }
 
 export async function completeLogin(formData: FormData) {
