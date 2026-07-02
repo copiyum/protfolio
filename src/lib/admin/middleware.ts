@@ -6,11 +6,18 @@ export function applySecurityHeaders(res: Response, pathname: string): Response 
   const isAdmin = pathname.startsWith("/admin");
   const csp = [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}'`,
+    // On /admin/* allow Turnstile (challenges.cloudflare.com) for L5 bot challenge.
+    isAdmin
+      ? `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`
+      : `script-src 'self' 'nonce-${nonce}'`,
     // Tailwind v4 inlines styles; revisit when migrating to CSS modules
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob:`,
-    `connect-src 'self'`,
+    isAdmin
+      ? `connect-src 'self' https://challenges.cloudflare.com`
+      : `connect-src 'self'`,
+    // Turnstile invisible widget renders inside a cf-hosted iframe.
+    isAdmin ? `frame-src https://challenges.cloudflare.com` : `frame-src 'none'`,
     `frame-ancestors ${isAdmin ? "'none'" : "'self'"}`,
     `base-uri 'self'`,
     `form-action 'self'`,
@@ -48,6 +55,26 @@ export interface AdminEnv {
   ADMIN_COOKIE_SECRET: string;
   CF_ACCESS_AUD: string;
   CF_ACCESS_TEAM_DOMAIN: string;
+}
+
+// L5 — per-IP rate limit at the edge (replaces CF WAF Rate Limiting Rules,
+// which require a paid plan). Applies to all /admin/* paths before any other
+// work — floods are blocked before CF Access JWT verification, D1 reads, or
+// cookie parsing. Spec target: 10 req / 10 s per IP.
+const ADMIN_RL_LIMIT = 10;
+const ADMIN_RL_WINDOW_SEC = 10;
+
+export async function enforceAdminIpRate(req: Request, env: AdminEnv): Promise<Response | null> {
+  const url = new URL(req.url);
+  if (!url.pathname.startsWith("/admin")) return null;
+  const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
+  const { consume } = await import("./ratelimit");
+  const allowed = await consume(env.DB, `ip:${ip}:/admin/*`, ADMIN_RL_LIMIT, ADMIN_RL_WINDOW_SEC);
+  if (allowed) return null;
+  return new Response("Too Many Requests", {
+    status: 429,
+    headers: { "Retry-After": String(ADMIN_RL_WINDOW_SEC) },
+  });
 }
 
 export async function requireAdmin(req: Request, env: AdminEnv): Promise<{ credentialId: string } | Response> {
