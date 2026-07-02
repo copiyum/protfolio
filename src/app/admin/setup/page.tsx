@@ -1,14 +1,20 @@
 "use client";
 import { useState } from "react";
 import { beginRegistration, completeRegistration } from "@/lib/admin/actions/auth";
+import { TurnstileWidget, getTurnstileSiteKey } from "@/components/admin/TurnstileWidget";
 
 export default function SetupPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string>("");
 
   async function register(e: React.FormEvent) {
     e.preventDefault();
+    if (!turnstileToken) {
+      setError("Bot challenge not solved");
+      return;
+    }
     try {
       setBusy(true);
       setError(null);
@@ -18,6 +24,7 @@ export default function SetupPage() {
       const fd = new FormData();
       fd.set("response", JSON.stringify(cred));
       fd.set("name", name);
+      fd.set("cf-turnstile-response", turnstileToken);
       await completeRegistration(fd);
       window.location.href = "/admin";
     } catch (e) {
@@ -25,6 +32,8 @@ export default function SetupPage() {
       setBusy(false);
     }
   }
+
+  const sitekey = getTurnstileSiteKey();
 
   return (
     <div className="mx-auto max-w-md p-8">
@@ -40,12 +49,15 @@ export default function SetupPage() {
         />
         <button
           type="submit"
-          disabled={busy}
+          disabled={busy || !turnstileToken}
           className="w-full rounded bg-[color:var(--foreground)] px-4 py-2 text-[color:var(--background)] disabled:opacity-50"
         >
           {busy ? "Awaiting authenticator…" : "Register"}
         </button>
       </form>
+      {sitekey && (
+        <TurnstileWidget sitekey={sitekey} action="register" onToken={setTurnstileToken} />
+      )}
     </div>
   );
 }

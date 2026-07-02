@@ -1,12 +1,12 @@
 "use server";
-import { cookies } from "next/headers";
-import { randomUUID } from "node:crypto";
+import { cookies, headers } from "next/headers";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { writeAudit } from "../audit";
 import { makeRegistrationOptions, verifyRegistration, makeAuthOptions, verifyAuth } from "../passkey";
 import { signSession, verifySession } from "../session";
 import { consume } from "../ratelimit";
 import { alert } from "../alerts";
+import { verifyTurnstile } from "../turnstile";
 
 const COOKIE_NAME = "__Host-pf_admin";
 const SESSION_TTL_MS = 15 * 60 * 1000;
@@ -14,6 +14,7 @@ const SESSION_TTL_MS = 15 * 60 * 1000;
 interface AdminEnv {
   DB: D1Database;
   ADMIN_COOKIE_SECRET: string;
+  TURNSTILE_SECRET: string;
   ALERT_EMAIL_WEBHOOK?: string;
 }
 
@@ -39,6 +40,18 @@ export async function beginRegistration() {
 export async function completeRegistration(formData: FormData) {
   const env = await getEnv();
   const jar = await cookies();
+  const hdrs = await headers();
+  const ip = (formData.get("ip") as string | null) ?? hdrs.get("cf-connecting-ip") ?? "unknown";
+  const ua = hdrs.get("user-agent") ?? undefined;
+
+  // L5 — Turnstile (before rate-limit so bot failures don't consume ceremony slots).
+  const turnstileToken = formData.get("cf-turnstile-response") as string | null;
+  const ts = await verifyTurnstile(turnstileToken, ip, env.TURNSTILE_SECRET);
+  if (!ts.ok) {
+    await writeAudit(env.DB, { action: "turnstile_failed", targetTable: "passkeys", ip, ua, diff: { stage: "register", reason: ts.reason } });
+    throw new Error("Bot challenge failed");
+  }
+
   const responseStr = formData.get("response") as string;
   const name = formData.get("name") as string;
   const challenge = jar.get("pf_reg_challenge")?.value;
@@ -61,6 +74,8 @@ export async function completeRegistration(formData: FormData) {
     targetTable: "passkeys",
     targetId: credentialId,
     actorCredentialId: credentialId,
+    ip,
+    ua,
   });
   await issueSession(credentialId, env);
   return { ok: true, credentialId };
@@ -78,7 +93,7 @@ export async function beginLogin() {
   }>();
   const passkeys = rows.results.map((r) => ({
     credential_id: r.credential_id,
-    public_key: r.public_key,
+    public_key: new Uint8Array(r.public_key),
     counter: r.counter,
     transports: JSON.parse(r.transports),
   }));
@@ -97,7 +112,18 @@ export async function beginLogin() {
 export async function completeLogin(formData: FormData) {
   const env = await getEnv();
   const jar = await cookies();
-  const ip = (formData.get("ip") as string) ?? "unknown";
+  const hdrs = await headers();
+  const ip = (formData.get("ip") as string | null) ?? hdrs.get("cf-connecting-ip") ?? "unknown";
+  const ua = hdrs.get("user-agent") ?? undefined;
+
+  // L5 — Turnstile (before rate-limit so bot failures don't consume ceremony slots).
+  const turnstileToken = formData.get("cf-turnstile-response") as string | null;
+  const ts = await verifyTurnstile(turnstileToken, ip, env.TURNSTILE_SECRET);
+  if (!ts.ok) {
+    await writeAudit(env.DB, { action: "turnstile_failed", targetTable: "sessions", ip, ua, diff: { stage: "login", reason: ts.reason } });
+    throw new Error("Bot challenge failed");
+  }
+
   const allowed = await consume(env.DB, `ip:${ip}:/admin/login`, 5, 3600);
   if (!allowed) {
     await alert(env, "Admin login lockout", `IP ${ip} locked for 1h after 5 failed attempts`);
@@ -120,7 +146,7 @@ export async function completeLogin(formData: FormData) {
   if (!row) throw new Error("Unknown credential");
   const passkey = {
     credential_id: row.credential_id,
-    public_key: row.public_key,
+    public_key: new Uint8Array(row.public_key),
     counter: row.counter,
     transports: JSON.parse(row.transports),
   };
@@ -134,6 +160,7 @@ export async function completeLogin(formData: FormData) {
       targetTable: "passkeys",
       targetId: passkey.credential_id,
       ip,
+      ua,
     });
     await alert(env, "Passkey clone suspected", `Credential ${passkey.credential_id.slice(0, 12)}… deleted; counter regression from ${passkey.counter} → ${verified.authenticationInfo.newCounter}`);
     throw new Error("Possible cloned authenticator; credential deleted");
@@ -145,7 +172,7 @@ export async function completeLogin(formData: FormData) {
     .run();
   jar.delete("pf_assert_challenge");
   await issueSession(passkey.credential_id, env);
-  await writeAudit(env.DB, { action: "login_success", actorCredentialId: passkey.credential_id, ip });
+  await writeAudit(env.DB, { action: "login_success", actorCredentialId: passkey.credential_id, ip, ua });
 
   // Open redirect guard
   const next = formData.get("next") as string | null;
@@ -155,7 +182,7 @@ export async function completeLogin(formData: FormData) {
 
 async function issueSession(credentialId: string, env: AdminEnv) {
   const exp = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  const nonce = randomUUID();
+  const nonce = crypto.randomUUID();
   const cookie = await signSession({ credentialId, expiresAt: exp, nonce }, env.ADMIN_COOKIE_SECRET);
   const jar = await cookies();
   jar.set(COOKIE_NAME, cookie, {

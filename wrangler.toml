@@ -1,7 +1,7 @@
 name = "pf-admin"
-main = ".opennext/worker.js"
+main = ".open-next/worker.js"
 compatibility_date = "2026-07-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = []
 
 [triggers]
 crons = ["0 3 * * *"]  # daily 03:00 UTC: audit snapshot to R2
@@ -15,11 +15,12 @@ database_id = "1a95c7c1-e993-41d9-8ee4-e7bbf61e74ef"
 binding = "R2"
 bucket_name = "pf-admin-assets"
 
-[[images]]
+[images]
 binding = "IMAGES"
 
 [vars]
 NODE_ENV = "production"
+NEXT_PUBLIC_TURNSTILE_SITEKEY = "0x4AAAAAADuge60msITfVisd"
 
 # Secrets via `wrangler secret put`:
 # ADMIN_COOKIE_SECRET
