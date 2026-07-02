@@ -1,4 +1,4 @@
-import { defineConfig, defineProject, mergeConfig } from "vitest/config";
+import { defineConfig, defineProject } from "vitest/config";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-pool-workers";
 import { resolve } from "node:path";
 
@@ -26,6 +26,7 @@ const workersProject = defineProject({
   test: {
     name: "workers",
     include: ["tests/admin/**/*.{test,spec}.{ts,tsx}"],
+    setupFiles: [resolve("./tests/admin/apply-migrations.ts")],
   },
 });
 
