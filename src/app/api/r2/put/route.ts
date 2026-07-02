@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
-import sharp from "sharp";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { verifySig, MAX_BYTES, MAX_DIM } from "@/lib/admin/r2";
+import { verifySig, validateImage } from "@/lib/admin/r2";
 
-// sharp native binaries don't run on edge — Cache Components (cacheComponents: true)
-// forces this route to nodejs runtime automatically. No `export const runtime` allowed.
+// No sharp — Cloudflare Images binding (cf-image) handles transforms at edge.
+// Validation here: signature + MIME + size only. Polyglot blocking via R2
+// Content-Type header + Images binding's strict decoder downstream.
 
 export async function PUT(req: NextRequest) {
   const ctx = await getCloudflareContext({ async: true });
@@ -17,17 +17,14 @@ export async function PUT(req: NextRequest) {
   if (!key || !exp || !sig) return new Response("Bad request", { status: 400 });
   if (!verifySig(key, exp, sig, env.R2_PRESIGN_SECRET)) return new Response("Bad signature", { status: 401 });
 
+  const mime = req.headers.get("content-type")?.split(";")[0]?.trim() ?? "";
   const buf = await req.arrayBuffer();
-  if (buf.byteLength > MAX_BYTES) return new Response("Too large", { status: 413 });
-
-  let img = sharp(Buffer.from(buf));
-  const meta = await img.metadata();
-  if ((meta.width ?? 0) > MAX_DIM || (meta.height ?? 0) > MAX_DIM) {
-    return new Response("Dimensions too large", { status: 400 });
+  try {
+    validateImage(mime, buf.byteLength);
+  } catch (e) {
+    return new Response((e as Error).message, { status: 400 });
   }
 
-  // Re-encode: strips EXIF + blocks polyglot files. Output webp for consistency.
-  const out = await img.rotate().webp({ quality: 85 }).toBuffer();
-  await env.R2.put(key, out, { httpMetadata: { contentType: "image/webp" } });
+  await env.R2.put(key, buf, { httpMetadata: { contentType: mime } });
   return new Response(JSON.stringify({ key }), { status: 200 });
 }

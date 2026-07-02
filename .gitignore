@@ -15,7 +15,12 @@
 
 # next.js
 /.next/
+/.opennext/
 /out/
+
+# wrangler / opennext local state
+/.wrangler/
+/.wrangler.toml.local
 
 # production
 /build

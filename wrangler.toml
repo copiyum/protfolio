@@ -9,11 +9,14 @@ crons = ["0 3 * * *"]  # daily 03:00 UTC: audit snapshot to R2
 [[d1_databases]]
 binding = "DB"
 database_name = "pf-admin"
-database_id = "<set-after-run-wrangler-d1-create>"
+database_id = "1a95c7c1-e993-41d9-8ee4-e7bbf61e74ef"
 
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "pf-admin-assets"
+
+[[images]]
+binding = "IMAGES"
 
 [vars]
 NODE_ENV = "production"
@@ -21,7 +24,7 @@ NODE_ENV = "production"
 # Secrets via `wrangler secret put`:
 # ADMIN_COOKIE_SECRET
 # CF_ACCESS_AUD
-# CF_ACCESS_TEAM_DOMAIN
+CF_ACCESS_TEAM_DOMAIN="floral-tree-4100.cloudflareaccess.com"
 # TURNSTILE_SECRET
 # R2_PRESIGN_SECRET
 # ALERT_EMAIL_WEBHOOK
