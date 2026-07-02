@@ -2,8 +2,6 @@
 import { defineCrud } from "./_crud";
 import { PostInput } from "../schema/posts";
 
-export type { PostInput };
-
 const cols = ["id", "title", "slug", "date", "summary", "tags", "cover", "content", "published"] as const;
 
 const crud = defineCrud({
