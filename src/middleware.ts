@@ -11,8 +11,16 @@ export async function middleware(request: NextRequest) {
     const blocked = await enforceAdminIpRate(request, ctx.env as unknown as Parameters<typeof enforceAdminIpRate>[1]);
     if (blocked) return blocked;
   }
-  const response = NextResponse.next();
-  applySecurityHeaders(response, pathname);
+
+  // Generate one nonce per request, propagate via x-nonce request header so
+  // Next.js applies it to its inline scripts, then reuse it on the response
+  // CSP header so the browser trusts them.
+  const nonce = Buffer.from(crypto.randomUUID()).toString("base64");
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-nonce", nonce);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
+  applySecurityHeaders(response, pathname, nonce);
   return response;
 }
 

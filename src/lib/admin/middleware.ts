@@ -1,15 +1,19 @@
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 // security headers — applied to every response via Next.js middleware.ts
-export function applySecurityHeaders(res: Response, pathname: string): Response {
-  const nonce = crypto.randomUUID().replace(/-/g, "");
+// When called from middleware, the same nonce must be propagated on the
+// incoming request via x-nonce header so Next.js applies it to its inline
+// scripts. Otherwise the browser refuses to execute Next.js's bootstrap.
+export function applySecurityHeaders(res: Response, pathname: string, nonce?: string): Response {
+  const effectiveNonce = nonce ?? crypto.randomUUID().replace(/-/g, "");
   const isAdmin = pathname.startsWith("/admin");
   const csp = [
     `default-src 'self'`,
-    // On /admin/* allow Turnstile (challenges.cloudflare.com) for L5 bot challenge.
+    // 'strict-dynamic' lets scripts loaded by the trusted nonce-tagged
+    // bootstrap script run without their own nonce (Next.js dynamic imports).
     isAdmin
-      ? `script-src 'self' 'nonce-${nonce}' https://challenges.cloudflare.com`
-      : `script-src 'self' 'nonce-${nonce}'`,
+      ? `script-src 'self' 'nonce-${effectiveNonce}' 'strict-dynamic' https://challenges.cloudflare.com`
+      : `script-src 'self' 'nonce-${effectiveNonce}' 'strict-dynamic'`,
     // Tailwind v4 inlines styles; revisit when migrating to CSS modules
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob:`,
@@ -28,7 +32,7 @@ export function applySecurityHeaders(res: Response, pathname: string): Response 
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
-  res.headers.set("x-nonce", nonce);
+  res.headers.set("x-nonce", effectiveNonce);
   return res;
 }
 
