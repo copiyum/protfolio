@@ -1,7 +1,7 @@
 name = "pf-admin"
 main = ".open-next/worker.js"
 compatibility_date = "2026-07-01"
-compatibility_flags = []
+compatibility_flags = ["nodejs_compat"]
 
 [triggers]
 crons = ["0 3 * * *"]  # daily 03:00 UTC: audit snapshot to R2
