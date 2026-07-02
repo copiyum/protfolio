@@ -3,7 +3,8 @@ import sharp from "sharp";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { verifySig, MAX_BYTES, MAX_DIM } from "@/lib/admin/r2";
 
-export const runtime = "nodejs"; // sharp native binaries don't run on edge
+// sharp native binaries don't run on edge — Cache Components (cacheComponents: true)
+// forces this route to nodejs runtime automatically. No `export const runtime` allowed.
 
 export async function PUT(req: NextRequest) {
   const ctx = await getCloudflareContext({ async: true });
