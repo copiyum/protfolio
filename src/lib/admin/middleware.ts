@@ -12,15 +12,16 @@ export function applySecurityHeaders(res: Response, pathname: string, nonce?: st
     // 'strict-dynamic' lets scripts loaded by the trusted nonce-tagged
     // bootstrap script run without their own nonce (Next.js dynamic imports).
     isAdmin
-      ? `script-src 'self' 'nonce-${effectiveNonce}' 'strict-dynamic' https://challenges.cloudflare.com`
-      : `script-src 'self' 'nonce-${effectiveNonce}' 'strict-dynamic'`,
+      ? `script-src 'nonce-${effectiveNonce}' 'strict-dynamic'`
+      : `script-src 'nonce-${effectiveNonce}' 'strict-dynamic'`,
     // Tailwind v4 inlines styles; revisit when migrating to CSS modules
     `style-src 'self' 'unsafe-inline'`,
-    `img-src 'self' data: blob:`,
+    `img-src 'self' data: blob: https://avatars.githubusercontent.com https://github.com`,
+    // Turnstile needs connect; map tiles (public) need openfreemap.
     isAdmin
       ? `connect-src 'self' https://challenges.cloudflare.com`
-      : `connect-src 'self'`,
-    // Turnstile invisible widget renders inside a cf-hosted iframe.
+      : `connect-src 'self' https://challenges.cloudflare.com https://tiles.openfreemap.org https://api.openfreemap.org`,
+    // Turnstile widget renders inside a cf-hosted iframe; map widget needs none.
     isAdmin ? `frame-src https://challenges.cloudflare.com` : `frame-src 'none'`,
     `frame-ancestors ${isAdmin ? "'none'" : "'self'"}`,
     `base-uri 'self'`,
@@ -62,18 +63,19 @@ export interface AdminEnv {
 }
 
 // L5 — per-IP rate limit at the edge (replaces CF WAF Rate Limiting Rules,
-// which require a paid plan). Applies to all /admin/* paths before any other
-// work — floods are blocked before CF Access JWT verification, D1 reads, or
-// cookie parsing. Spec target: 10 req / 10 s per IP.
-const ADMIN_RL_LIMIT = 10;
-const ADMIN_RL_WINDOW_SEC = 10;
+// which require a paid plan). Spec: only /admin/login + /admin/setup — NOT
+// /admin/* in general, because Next.js App Router issues many parallel RSC
+// fetches per page render (~10/load) which would self-DDoS the admin.
+const RL_PATHS = [/^\/admin\/login\/?$/, /^\/admin\/setup\/?$/];
+const ADMIN_RL_LIMIT = 100;
+const ADMIN_RL_WINDOW_SEC = 3600;
 
 export async function enforceAdminIpRate(req: Request, env: AdminEnv): Promise<Response | null> {
   const url = new URL(req.url);
-  if (!url.pathname.startsWith("/admin")) return null;
+  if (!RL_PATHS.some((re) => re.test(url.pathname))) return null;
   const ip = req.headers.get("cf-connecting-ip") ?? "unknown";
   const { consume } = await import("./ratelimit");
-  const allowed = await consume(env.DB, `ip:${ip}:/admin/*`, ADMIN_RL_LIMIT, ADMIN_RL_WINDOW_SEC);
+  const allowed = await consume(env.DB, `ip:${ip}:${url.pathname}`, ADMIN_RL_LIMIT, ADMIN_RL_WINDOW_SEC);
   if (allowed) return null;
   return new Response("Too Many Requests", {
     status: 429,

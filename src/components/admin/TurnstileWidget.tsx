@@ -17,7 +17,8 @@ declare global {
         el: HTMLElement,
         opts: {
           sitekey: string;
-          size?: "invisible" | "normal" | "flexible";
+          size?: "normal" | "compact" | "flexible";
+          appearance?: "always" | "execute" | "interaction-only";
           execution?: "render" | "execute";
           action?: string;
           callback: (token: string) => void;
@@ -71,7 +72,8 @@ export function TurnstileWidget({ sitekey, action, onToken }: TurnstileWidgetPro
         if (cancelled || !containerRef.current || !window.turnstile) return;
         widgetIdRef.current = window.turnstile.render(containerRef.current, {
           sitekey,
-          size: "invisible",
+          size: "flexible",
+          appearance: "interaction-only",
           execution: "execute",
           action,
           callback: onToken,
