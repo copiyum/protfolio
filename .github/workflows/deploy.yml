@@ -1,0 +1,49 @@
+name: deploy
+
+# Post-deploy steps that Workers Builds cannot handle natively:
+#   - D1 migrations
+#   - Post-deploy smoke tests
+#
+# Workers Builds (configured in the Cloudflare dashboard) handles
+# the actual build + deploy on push to main. This workflow fills
+# the gaps with a tightly-scoped D1-only API token.
+#
+# Prerequisites:
+#   1. Connect this repo to Workers Builds in the Cloudflare dashboard
+#      (Workers & Pages → pf-admin → Settings → Builds → Connect Git)
+#   2. Add CLOUDFLARE_ACCOUNT_ID to GitHub Secrets
+#   3. Create a Cloudflare API token with D1:Write permission only,
+#      and add it as CLOUDFLARE_D1_TOKEN in GitHub Secrets
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  post-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Apply D1 migrations
+        run: npx wrangler d1 migrations apply pf-admin --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Smoke test
+        run: bash scripts/smoke-test.sh https://sarang.dev
