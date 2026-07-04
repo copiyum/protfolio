@@ -21,30 +21,14 @@ function isPlaywrightDevBypass() {
 // longer matches the rolled JS bytes, so the browser logs an error on every
 // page load and refuses to load it. Strip the tag — we don't want analytics on
 // /admin/* anyway, and on the public site the beacon was dead in the water.
-// Also strip the matching `<noscript>` 1x1 pixel fallback for the same reason.
-const CF_BEACON_SCRIPT_RE =
-  /<script\b[^>]*?\bsrc=["']https:\/\/static\.cloudflareinsights\.com\/[^"']*["'][^>]*?>\s*<\/script>/gi;
-const CF_BEACON_PIXEL_RE =
-  /<noscript>[^<]*<img\b[^>]*?\bsrc=["']https:\/\/static\.cloudflareinsights\.com\/[^"']*["'][^>]*?>(?:\s*<\/img>)?\s*<\/noscript>/gi;
-
 async function stripCfBeacon(response: Response): Promise<Response> {
   const ct = response.headers.get("content-type") ?? "";
   if (!ct.includes("text/html")) return response;
-  let html: string;
-  try {
-    html = await response.text();
-  } catch {
-    return response;
-  }
-  const stripped = html.replace(CF_BEACON_SCRIPT_RE, "").replace(CF_BEACON_PIXEL_RE, "");
-  if (stripped === html) return response;
-  const headers = new Headers(response.headers);
-  headers.set("content-length", String(new TextEncoder().encode(stripped).byteLength));
-  return new Response(stripped, {
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-  });
+  const rewriter = new HTMLRewriter()
+    .on("script[src*='cloudflareinsights.com']", {
+      element(el) { el.remove(); },
+    });
+  return rewriter.transform(response);
 }
 
 function expireSessionCookie(res: NextResponse): void {

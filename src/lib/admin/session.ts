@@ -55,6 +55,10 @@ export async function verifyStoredSession(d1: D1Database, session: SessionPayloa
   return true;
 }
 
-export async function renewStoredSession(d1: D1Database, sessionId: string, expiresAt: string): Promise<void> {
-  await d1.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").bind(expiresAt, sessionId).run();
+export async function renewStoredSession(d1: D1Database, sessionId: string, expiresAt: string): Promise<boolean> {
+  const result = await d1
+    .prepare("UPDATE sessions SET expires_at = ? WHERE id = ? AND expires_at > ?")
+    .bind(expiresAt, sessionId, new Date().toISOString())
+    .run();
+  return (result.meta?.changes ?? 0) > 0;
 }

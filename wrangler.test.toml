@@ -6,6 +6,7 @@ compatibility_flags = ["nodejs_compat_v2"]
 binding = "DB"
 database_name = "pf-admin"
 database_id = "test-stub-id"
+migrations_dir = "./migrations"
 
 [[r2_buckets]]
 binding = "R2"

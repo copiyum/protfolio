@@ -71,14 +71,16 @@ export interface RequestGuardOptions {
   fresh?: boolean;
 }
 
-const jwksCache = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+const JWKS_CACHE_TTL_MS = 60 * 60 * 1000;
+const jwksCache = new Map<string, { jwks: ReturnType<typeof createRemoteJWKSet>; fetchedAt: number }>();
 
 export async function verifyCfAccessJwt(jwt: string, aud: string, teamDomain: string): Promise<boolean> {
-  let jwks = jwksCache.get(teamDomain);
-  if (!jwks) {
-    jwks = createRemoteJWKSet(new URL(`https://${teamDomain}/cdn-cgi/access/certs`));
-    jwksCache.set(teamDomain, jwks);
+  const cached = jwksCache.get(teamDomain);
+  if (!cached || Date.now() - cached.fetchedAt > JWKS_CACHE_TTL_MS) {
+    const jwks = createRemoteJWKSet(new URL(`https://${teamDomain}/cdn-cgi/access/certs`));
+    jwksCache.set(teamDomain, { jwks, fetchedAt: Date.now() });
   }
+  const { jwks } = jwksCache.get(teamDomain)!;
   try {
     const { payload } = await jwtVerify(jwt, jwks, { audience: aud, issuer: `https://${teamDomain}` });
     return !!payload;
@@ -223,9 +225,11 @@ export function createAuthGuard(env: AdminAuthEnv) {
       const expiresAtMs = new Date(session.expiresAt).getTime();
       if (session.sessionId && expiresAtMs - Date.now() < ADMIN_SESSION_RENEW_THRESHOLD_MS) {
         const expiresAt = new Date(Date.now() + ADMIN_SESSION_TTL_MS).toISOString();
-        await renewStoredSession(env.DB, session.sessionId, expiresAt);
-        const cookie = await signSession({ ...session, expiresAt }, env.ADMIN_COOKIE_SECRET);
-        renewal = { session, expiresAt, cookie };
+        const renewed = await renewStoredSession(env.DB, session.sessionId, expiresAt);
+        if (renewed) {
+          const cookie = await signSession({ ...session, expiresAt }, env.ADMIN_COOKIE_SECRET);
+          renewal = { session, expiresAt, cookie };
+        }
       }
       return { credentialId: session.credentialId, session, renewal };
     } catch (error) {
