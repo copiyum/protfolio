@@ -16,7 +16,7 @@ declare global {
         el: HTMLElement,
         opts: {
           sitekey: string;
-          size?: "normal" | "compact" | "flexible" | "invisible";
+          size?: "normal" | "compact" | "flexible";
           appearance?: "always" | "execute" | "interaction-only";
           execution?: "render" | "execute";
           action?: string;
@@ -189,7 +189,7 @@ export const InvisibleTurnstile = forwardRef<InvisibleTurnstileHandle, {
       if (!containerRef.current || !window.turnstile || widgetIdRef.current) return;
       widgetIdRef.current = window.turnstile.render(containerRef.current, {
         sitekey,
-        size: "invisible",
+        size: "normal",
         appearance: "execute",
         execution: "execute",
         action,
