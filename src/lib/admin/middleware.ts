@@ -34,8 +34,8 @@ export function buildContentSecurityPolicy(pathname: string, nonce?: string): st
       : `connect-src 'self' https://challenges.cloudflare.com https://tiles.openfreemap.org https://api.openfreemap.org`,
     // MapLibre runs its parser/renderer in a blob worker on public pages.
     isAdmin ? `worker-src 'none'` : `worker-src 'self' blob:`,
-    // Turnstile widget renders inside a cf-hosted iframe; map widget needs none.
-    isAdmin ? `frame-src https://challenges.cloudflare.com` : `frame-src 'none'`,
+    // Turnstile widget renders inside a cf-hosted iframe (admin + public visitors page).
+    `frame-src https://challenges.cloudflare.com`,
     `frame-ancestors ${isAdmin ? "'none'" : "'self'"}`,
     `base-uri 'self'`,
     `form-action 'self'`,
