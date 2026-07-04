@@ -170,7 +170,11 @@ export async function completeRegistrationAction(formData: FormData, mode: Regis
 }
 
 export async function beginLogin() {
-  await requireCfAccessForAction();
+  const { env } = await requireCfAccessForAction();
+  const row = await env.DB.prepare("SELECT COUNT(*) AS c FROM passkeys").first<{ c: number }>();
+  if (!row || row.c === 0) {
+    throw new Error("No passkeys registered. Visit /admin/setup to register one.");
+  }
   const opts = await makeAuthOptions();
   const jar = await cookies();
   jar.set("pf_assert_challenge", opts.challenge, {
@@ -208,14 +212,14 @@ export async function completeLogin(formData: FormData) {
   const failureKey = `ip:${ip}:/admin/login`;
   if (await isBlocked(env.DB, failureKey, 5, 3600)) {
     await alert(env, "Admin login lockout", `IP ${ip} locked for 1h after 5 failed attempts`);
-    throw new Error("Too many failed attempts");
+    throw new Error("Too many failed attempts. Wait 1 hour and try again.");
   }
 
   let passkeyCredentialId: string;
   try {
     const responseStr = formData.get("response") as string;
     const challenge = jar.get("pf_assert_challenge")?.value;
-    if (!challenge) throw new Error("Login challenge expired");
+    if (!challenge) throw new Error("Passkey challenge expired. Refresh and try again.");
     const response = JSON.parse(responseStr);
     const row = await env.DB.prepare(
       "SELECT credential_id, public_key, counter, transports FROM passkeys WHERE credential_id = ?",
@@ -227,7 +231,7 @@ export async function completeLogin(formData: FormData) {
         counter: number;
         transports: string;
       }>();
-    if (!row) throw new Error("Unknown credential");
+    if (!row) throw new Error("This passkey isn't registered with this site. Try a different passkey or register one at /admin/setup.");
     const passkey = {
       credential_id: row.credential_id,
       public_key: new Uint8Array(row.public_key),
@@ -235,7 +239,7 @@ export async function completeLogin(formData: FormData) {
       transports: JSON.parse(row.transports),
     };
     const verified = await verifyAuth(response, challenge, passkey);
-    if (!verified.verified) throw new Error("Login failed");
+    if (!verified.verified) throw new Error("Passkey verification failed. Make sure you're using the correct passkey and try again.");
 
     const newCounter = verified.authenticationInfo.newCounter;
     if (passkey.counter > 0 && newCounter > 0 && newCounter <= passkey.counter) {
@@ -266,6 +270,12 @@ export async function completeLogin(formData: FormData) {
     await consume(env.DB, failureKey, 5, 3600);
     if (await isBlocked(env.DB, failureKey, 5, 3600)) {
       await alert(env, "Admin login lockout", `IP ${ip} locked for 1h after 5 failed attempts`);
+    } else {
+      const row = await env.DB.prepare("SELECT count FROM rate_limits WHERE scope_key = ?").bind(failureKey).first<{ count: number }>();
+      const remaining = Math.max(0, 5 - (row?.count ?? 0));
+      if (e instanceof Error && remaining > 0) {
+        e.message = `${e.message} (${remaining} attempt${remaining === 1 ? "" : "s"} remaining before 1h lockout)`;
+      }
     }
     throw e;
   }
