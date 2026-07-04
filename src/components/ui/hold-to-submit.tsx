@@ -51,7 +51,6 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
   const pctRef = useRef<HTMLSpanElement | null>(null);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef(0);
-  const submitTimer = useRef<NodeJS.Timeout | null>(null);
   const resetTimer = useRef<NodeJS.Timeout | null>(null);
 
   const playSuccessSound = useCallback(() => {
@@ -69,14 +68,12 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
     setShowStars(true);
     playSuccessSound();
 
-    // Call onSubmit after a brief delay for the animation, then reset.
-    submitTimer.current = setTimeout(() => {
-      onSubmit();
-      resetTimer.current = setTimeout(() => {
-        setIsComplete(false);
-        setShowStars(false);
-      }, 500);
-    }, 300);
+    // Call onSubmit immediately, then reset after animation.
+    onSubmit();
+    resetTimer.current = setTimeout(() => {
+      setIsComplete(false);
+      setShowStars(false);
+    }, 500);
   }, [onSubmit, playSuccessSound]);
 
   // rAF drives the fill bar + percentage via refs — no per-frame React state.
@@ -124,7 +121,6 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
   useEffect(() => {
     return () => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (submitTimer.current) clearTimeout(submitTimer.current);
       if (resetTimer.current) clearTimeout(resetTimer.current);
     };
   }, []);
@@ -136,7 +132,7 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
           relative overflow-hidden px-5 py-2.5 rounded-lg font-medium text-sm
           bg-foreground text-background transition-[opacity,transform,box-shadow] duration-[var(--motion-state)]
           select-none touch-none border border-transparent
-          ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-90 hover:scale-[1.03] active:scale-95'}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : isHolding ? '' : 'hover:opacity-90 hover:scale-[1.03] active:scale-95'}
           ${isHolding ? `border-background/20 ${styles.holding}` : ''}
           ${className}
         `}

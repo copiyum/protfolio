@@ -20,10 +20,14 @@ function clampPercent(n:number){return Math.max(0, Math.min(100, n));}
 
 const NoteCard = React.memo(function NoteCard({
   note,
+  index,
+  shuffling,
   onDrag,
   onRotate,
 }: {
   note: Note;
+  index: number;
+  shuffling: boolean;
   onDrag: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
   onRotate: (id: string) => void;
 }) {
@@ -31,11 +35,12 @@ const NoteCard = React.memo(function NoteCard({
     left: `${note.x}%`,
     top: `${note.y}%`,
     transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
-  };
+    "--i": index,
+  } as React.CSSProperties;
   const imageSrc = note.imageDataUrl ?? note.imageUrl;
 
   return (
-    <div className={styles.card} style={style} onMouseDown={(event)=>onDrag(note.id, event)}>
+    <div className={`${styles.card} ${shuffling ? styles.cardShuffling : ""}`} style={style} onMouseDown={(event)=>onDrag(note.id, event)}>
       <div className={styles.toolbar}>
         <button className={styles.iconBtn} title="Shuffle angle" onMouseDown={(event)=>event.stopPropagation()} onClick={(event)=>{event.stopPropagation(); onRotate(note.id);}}>↻</button>
       </div>
@@ -43,11 +48,11 @@ const NoteCard = React.memo(function NoteCard({
         <div className={styles.drawPreview} style={{ borderBottomColor: note.color }}>
           {imageSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imageSrc} alt="note" draggable={false} onDragStart={(event)=>event.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+            <img src={imageSrc} alt="note" draggable={false} onDragStart={(event)=>event.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", borderTopLeftRadius: 10, borderTopRightRadius: 10 }} />
           ) : null}
         </div>
         <div className={styles.meta}>
-          <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.85 }}>{note.name || "unknown"}</div>
+          <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.85 }}>{note.name || "unknown"}</div>
           {note.message ? <div className={styles.msg}>{note.message}</div> : null}
         </div>
       </div>
@@ -78,6 +83,7 @@ export default function VisitorsBoard({
   const modalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [brushWidth, setBrushWidth] = useState(4);
   const [erase, setErase] = useState(false);
+  const [shuffling, setShuffling] = useState(false);
   const mounted = useHasMounted();
   const reducedMotion = useReducedMotion();
   const visibleNotes = mounted ? notes : [];
@@ -137,7 +143,14 @@ export default function VisitorsBoard({
   }, []);
 
   const shuffle = useCallback(() => {
-    setNotes(prev => prev.map(n => ({ ...n, rotation: randomRotation() })));
+    setShuffling(true);
+    setNotes(prev => prev.map(n => ({
+      ...n,
+      x: clampPercent(Math.random() * 82 + 9),
+      y: clampPercent(Math.random() * 72 + 8),
+      rotation: randomRotation(),
+    })));
+    setTimeout(() => setShuffling(false), 600);
   }, []);
 
   const rotate = useCallback((id: string) => setNotes(prev=>prev.map(x=>x.id===id?{...x, rotation: randomRotation()}:x)), []);
@@ -239,8 +252,8 @@ export default function VisitorsBoard({
             </div>
             <p className={styles.emptyText}>Be the first to leave a doodle.</p>
         </div>
-        {visibleNotes.map((note) => (
-          <NoteCard key={note.id} note={note} onDrag={onDrag} onRotate={rotate} />
+        {visibleNotes.map((note, index) => (
+          <NoteCard key={note.id} note={note} index={index} shuffling={shuffling} onDrag={onDrag} onRotate={rotate} />
         ))}
       </div>
 

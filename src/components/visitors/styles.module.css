@@ -1,9 +1,8 @@
 .board {
   position: relative;
   width: 100%;
-  /* Taller well so more note cards fit before they crowd */
-  aspect-ratio: 4 / 3;
-  min-height: 560px;
+  aspect-ratio: 3 / 2;
+  min-height: 640px;
   /* Theme-aware layered background using foreground color for subtle lights */
   background:
     radial-gradient(circle at 40% 20%, rgba(var(--foreground-rgb), 0.06), transparent 50%),
@@ -42,9 +41,9 @@
 }
 
 .ghost {
-  width: 88px;
-  height: 116px;
-  border-radius: 10px;
+  width: 70px;
+  height: 88px;
+  border-radius: 8px;
   border: 1.5px dashed var(--card-border, rgba(255,255,255,0.12));
   background: rgba(var(--foreground-rgb), 0.02);
 }
@@ -67,28 +66,35 @@
 
 .card {
   position: absolute;
-  width: 150px;
-  height: 186px;
-  border-radius: 12px;
-  /* solid, opaque surface — no see-through board behind it */
+  width: 120px;
+  height: 150px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--background), var(--foreground) 5%);
   border: 1px solid var(--card-border, rgba(255,255,255,0.08));
-  box-shadow: 0 8px 18px rgba(0,0,0,0.28);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.28);
   cursor: grab;
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
   transform-origin: center;
-  animation: note-enter var(--motion-panel) var(--ease-standard) both;
+  animation: waterfall var(--motion-panel) var(--ease-standard) both;
+  animation-delay: calc(var(--i, 0) * 50ms);
+  transition: left 0.4s var(--ease-standard), top 0.4s var(--ease-standard);
 }
 
-@keyframes note-enter {
+.cardShuffling {
+  transition: left 0.5s ease, top 0.5s ease, transform 0.5s ease;
+}
+
+@keyframes waterfall {
   from {
     opacity: 0;
-    filter: blur(3px);
+    translate: 0 -16px;
+    filter: blur(2px);
   }
   to {
     opacity: 1;
+    translate: 0 0;
     filter: blur(0);
   }
 }
@@ -106,19 +112,19 @@
 .drawPreview {
   background: color-mix(in srgb, var(--background) 88%, var(--foreground) 12%);
   border-bottom: 1px solid var(--card-border, rgba(255,255,255,0.06));
-  border-top-left-radius: 12px;
-  border-top-right-radius: 12px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .meta {
-  padding: 8px 10px 10px;
+  padding: 6px 8px 8px;
 }
 
 .msg {
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(var(--foreground-rgb), 0.6);
   margin-top: 2px;
   overflow: hidden;
