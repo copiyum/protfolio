@@ -37,7 +37,7 @@ check_page() {
     failures=$((failures + 1))
     return
   fi
-  if ! echo "${body}" | grep -qi "${expected}"; then
+  if ! echo "${body}" | grep -i "${expected}" > /dev/null; then
     echo "  FAIL: ${path} (${label}) — missing expected content"
     failures=$((failures + 1))
     return
