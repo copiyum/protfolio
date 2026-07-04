@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { env } from "cloudflare:workers";
-import { applySecurityHeaders, enforceAdminIpRate } from "@/lib/admin/middleware";
+import { applySecurityHeaders, enforceAdminIpRate, requireAdmin } from "@/lib/admin/middleware";
 
 describe("security headers", () => {
   it("adds CSP, HSTS, frame deny, content-type nosniff, referrer, permissions", () => {
@@ -85,5 +85,31 @@ describe("admin IP rate limit (L5, replaces WAF)", () => {
     for (let i = 0; i < 50; i++) {
       expect(await enforceAdminIpRate(req, e)).toBeNull();
     }
+  });
+});
+
+describe("requireAdmin", () => {
+  const adminEnv = {
+    DB: env.DB,
+    ADMIN_COOKIE_SECRET: "test-secret",
+    CF_ACCESS_AUD: "test-aud",
+    CF_ACCESS_TEAM_DOMAIN: "team.example.com",
+  };
+
+  it("rejects requests without a CF Access JWT", async () => {
+    const res = await requireAdmin(new Request("https://sarang.dev/admin"), adminEnv);
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(401);
+    await expect((res as Response).text()).resolves.toBe("CF Access required");
+  });
+
+  it("rejects malformed CF Access JWTs", async () => {
+    const res = await requireAdmin(
+      new Request("https://sarang.dev/admin", { headers: { "cf-access-jwt-assertion": "not-a-jwt" } }),
+      adminEnv,
+    );
+    expect(res).toBeInstanceOf(Response);
+    expect((res as Response).status).toBe(401);
+    await expect((res as Response).text()).resolves.toBe("Invalid CF Access token");
   });
 });

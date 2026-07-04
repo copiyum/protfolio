@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": [
       "dom",
       "dom.iterable",
@@ -31,9 +31,8 @@
       ]
     },
     "types": [
-      "vitest/globals",
-      "@cloudflare/workers-types",
-      "@cloudflare/vitest-pool-workers/types"
+      "node",
+      "@cloudflare/workers-types"
     ]
   },
   "include": [
@@ -44,6 +43,11 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "tests",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
   ]
 }

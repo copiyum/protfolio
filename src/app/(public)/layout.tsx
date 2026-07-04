@@ -4,16 +4,21 @@ import Header from "@/components/ui/header";
 import LoadingBeam from "@/components/ui/loading-beam";
 import ScrollToTop from "@/components/ui/scroll-to-top";
 import SelectionTooltip from "@/components/ui/selection-tooltip";
+import { getPublicLayoutData } from "@/lib/admin/read";
 
-export default function PublicLayout({ children }: { children: React.ReactNode }) {
+export const revalidate = 300;
+
+export default async function PublicLayout({ children }: { children: React.ReactNode }) {
+  const { navItems, profile } = await getPublicLayoutData();
+
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
       <GradientBackdrop />
       <LoadingBeam />
-      <Header />
+      <Header items={navItems} />
       <main className="pt-[3.75rem]">{children}</main>
       <ScrollToTop />
-      <SelectionTooltip />
+      <SelectionTooltip phrases={profile.selectionTooltipPhrases} />
     </ThemeProvider>
   );
 }

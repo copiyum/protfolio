@@ -2,10 +2,11 @@
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { NavItem } from "@/lib/admin/read";
 
-import { ThemeToggleButton2 } from "./theme-toggle";
+import { ThemeToggleButton } from "./theme-toggle";
 
-export default function Header() {
+export default function Header({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
 
   function handleHomeClick(event: MouseEvent<HTMLAnchorElement>) {
@@ -33,10 +34,12 @@ export default function Header() {
           Sarang
         </Link>
         <nav className="flex items-center gap-5 text-base md:text-base">
-          <Link href="/blog" className="nav-link opacity-80 hover:opacity-100">blog</Link>
-          <Link href="/projects" className="nav-link opacity-80 hover:opacity-100">projects</Link>
-          <Link href="/visitors" className="nav-link opacity-80 hover:opacity-100">visitors</Link>
-          <ThemeToggleButton2 className="size-8 p-1.5 bg-transparent" />
+          {items.map((item) => (
+            <Link key={item.id} href={item.href} className="nav-link opacity-80 hover:opacity-100">
+              {item.label}
+            </Link>
+          ))}
+          <ThemeToggleButton className="size-8 p-1.5 bg-transparent" />
         </nav>
       </div>
     </header>

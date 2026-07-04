@@ -1,18 +1,34 @@
 import { logout } from "@/lib/admin/actions/auth";
-import { listFlags } from "@/lib/admin/actions/feature-flags";
+import { adminAction, type AdminActionResult } from "@/lib/admin/actions/result";
+import { listFeatureFlags } from "@/lib/admin/queries";
+import { AdminActionButton } from "@/components/admin/AdminActionButton";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminDashboard() {
-  const flags = await listFlags().catch(() => []);
+  const flags = await listFeatureFlags().catch(() => []);
+
+  async function logoutAction(): Promise<AdminActionResult> {
+    "use server";
+    return adminAction(async () => {
+      await logout();
+      return { ok: true, redirectTo: "/admin/login" };
+    });
+  }
+
   return (
     <div>
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <form action={logout}>
-          <button className="rounded border border-[color:var(--foreground)]/20 px-3 py-1 text-sm">
-            Log out
-          </button>
-        </form>
+        <AdminActionButton
+          action={logoutAction}
+          pendingLabel="Logging out..."
+          className="rounded border border-[color:var(--foreground)]/20 px-3 py-1 text-sm disabled:opacity-50"
+        >
+          Log out
+        </AdminActionButton>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded border border-[color:var(--foreground)]/10 p-4">

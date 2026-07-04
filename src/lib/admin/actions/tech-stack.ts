@@ -1,18 +1,8 @@
 "use server";
-import { defineCrud } from "./_crud";
-import { TechInput } from "../schema/tech-stack";
+import { techStackPlugin } from "../entities";
+import { defineEntityCrud } from "./entity-crud";
 
-const cols = ["id", "name", "icon", "category", "sort_order", "published"] as const;
-
-const crud = defineCrud({
-  table: "tech_stack",
-  tag: "tech-stack",
-  columns: cols,
-  schema: {
-    parse: (i) => TechInput.parse(i),
-    partial: () => ({ parse: (i) => TechInput.partial().parse(i) }),
-  },
-});
+const crud = defineEntityCrud(techStackPlugin);
 
 export const listTech = crud.list;
 export const getTech = crud.get;

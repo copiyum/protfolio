@@ -2,10 +2,12 @@
 import { cookies } from "next/headers";
 import { prepareAudit, writeAudit } from "../audit";
 import { makeRegistrationOptions, verifyRegistration, makeAuthOptions, verifyAuth } from "../passkey";
-import { signSession, verifySession } from "../session";
+import { verifySession } from "../session";
 import { consume, isBlocked, reset } from "../ratelimit";
 import { alert } from "../alerts";
 import { verifyTurnstile } from "../turnstile";
+import { createAuthGuard } from "../auth-guard";
+import { adminActionError } from "./result";
 import {
   ADMIN_COOKIE_NAME as COOKIE_NAME,
   ADMIN_SESSION_TTL_MS as SESSION_TTL_MS,
@@ -32,6 +34,15 @@ function requireTurnstileSecret(env: ActionAdminEnv): string {
 //                 Requires an active session cookie. Reached via
 //                 /admin/passkeys/register (gated by middleware).
 export type RegistrationMode = "bootstrap" | "add";
+type AdminDataResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+async function dataAction<T>(fn: () => Promise<T>): Promise<AdminDataResult<T>> {
+  try {
+    return { ok: true, data: await fn() };
+  } catch (error) {
+    return { ok: false, error: adminActionError(error) };
+  }
+}
 
 async function assertBootstrapPossible(env: AdminEnv): Promise<void> {
   const row = await env.DB
@@ -66,6 +77,10 @@ export async function beginRegistration(mode: RegistrationMode = "add") {
     maxAge: 300,
   });
   return opts;
+}
+
+export async function beginRegistrationAction(mode: RegistrationMode = "add") {
+  return dataAction(() => beginRegistration(mode));
 }
 
 export async function completeRegistration(formData: FormData, mode: RegistrationMode = "add") {
@@ -150,6 +165,10 @@ export async function completeRegistration(formData: FormData, mode: Registratio
   return { ok: true, credentialId };
 }
 
+export async function completeRegistrationAction(formData: FormData, mode: RegistrationMode = "add") {
+  return dataAction(() => completeRegistration(formData, mode));
+}
+
 export async function beginLogin() {
   await requireCfAccessForAction();
   const opts = await makeAuthOptions();
@@ -162,6 +181,10 @@ export async function beginLogin() {
     maxAge: 300,
   });
   return opts;
+}
+
+export async function beginLoginAction() {
+  return dataAction(beginLogin);
 }
 
 export async function completeLogin(formData: FormData) {
@@ -264,16 +287,14 @@ export async function completeLogin(formData: FormData) {
   return { ok: true, redirect: safeNext };
 }
 
+export async function completeLoginAction(formData: FormData) {
+  return dataAction(() => completeLogin(formData));
+}
+
 async function issueSession(credentialId: string, env: AdminEnv, meta: ActionRequestMeta) {
-  const sessionId = crypto.randomUUID();
-  const exp = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-  const nonce = crypto.randomUUID();
-  await env.DB.prepare(
-    "INSERT INTO sessions (id, passkey_credential_id, expires_at, ip, ua) VALUES (?, ?, ?, ?, ?)",
-  ).bind(sessionId, credentialId, exp, meta.ip, meta.ua ?? null).run();
-  const cookie = await signSession({ sessionId, credentialId, expiresAt: exp, nonce, freshAt: Date.now() }, env.ADMIN_COOKIE_SECRET);
+  const session = await createAuthGuard(env).issueSession(credentialId, meta);
   const jar = await cookies();
-  jar.set(COOKIE_NAME, cookie, {
+  jar.set(COOKIE_NAME, session.cookie, {
     httpOnly: true,
     secure: true,
     sameSite: "lax",

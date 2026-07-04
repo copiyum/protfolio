@@ -1,18 +1,8 @@
 "use server";
-import { defineCrud } from "./_crud";
-import { SocialLinkInput } from "../schema/social-links";
+import { socialLinksPlugin } from "../entities";
+import { defineEntityCrud } from "./entity-crud";
 
-const cols = ["id", "label", "href", "sort_order", "published"] as const;
-
-const crud = defineCrud({
-  table: "social_links",
-  tag: "social-links",
-  columns: cols,
-  schema: {
-    parse: (i) => SocialLinkInput.parse(i),
-    partial: () => ({ parse: (i) => SocialLinkInput.partial().parse(i) }),
-  },
-});
+const crud = defineEntityCrud(socialLinksPlugin);
 
 export const listSocialLinks = crud.list;
 export const getSocialLink = crud.get;

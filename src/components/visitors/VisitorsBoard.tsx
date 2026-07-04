@@ -8,106 +8,143 @@ import type { Note } from "./types";
 import { SimpleColorPicker } from "@/components/ui/shadcn-io/color-picker";
 import HoldToSubmit from "@/components/ui/hold-to-submit";
 import useReducedMotion from "@/hooks/use-reduced-motion";
+import useHasMounted from "@/hooks/use-has-mounted";
+import { InvisibleTurnstile, type InvisibleTurnstileHandle } from "@/components/admin/TurnstileWidget";
 
 const COLORS = ["#f43f5e", "#f59e0b", "#10b981", "#3b82f6", "#a855f7", "#f97316", "#22d3ee", "#e5e7eb"];
 
-const STORAGE_KEY = "visitors-board-v1";
 const MODAL_EXIT_MS = 220;
 
 function randomRotation() { return Math.round((Math.random() * 8 - 4) * 10) / 10; } // ±4° — controlled scatter, not chaos
-function clamp01(n:number){return Math.max(0, Math.min(100, n));}
+function clampPercent(n:number){return Math.max(0, Math.min(100, n));}
 
-function loadNotes(): Note[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as Note[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
+const NoteCard = React.memo(function NoteCard({
+  note,
+  onDrag,
+  onRotate,
+}: {
+  note: Note;
+  onDrag: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
+  onRotate: (id: string) => void;
+}) {
+  const style: React.CSSProperties = {
+    left: `${note.x}%`,
+    top: `${note.y}%`,
+    transform: `translate(-50%, -50%) rotate(${note.rotation}deg)`,
+  };
+  const imageSrc = note.imageDataUrl ?? note.imageUrl;
 
-function saveNotes(notes: Note[]) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(notes)); } catch {}
-}
+  return (
+    <div className={styles.card} style={style} onMouseDown={(event)=>onDrag(note.id, event)}>
+      <div className={styles.toolbar}>
+        <button className={styles.iconBtn} title="Shuffle angle" onMouseDown={(event)=>event.stopPropagation()} onClick={(event)=>{event.stopPropagation(); onRotate(note.id);}}>↻</button>
+      </div>
+      <div className={styles.cardInner}>
+        <div className={styles.drawPreview} style={{ borderBottomColor: note.color }}>
+          {imageSrc ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imageSrc} alt="note" draggable={false} onDragStart={(event)=>event.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
+          ) : null}
+        </div>
+        <div className={styles.meta}>
+          <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.85 }}>{note.name || "unknown"}</div>
+          {note.message ? <div className={styles.msg}>{note.message}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+});
 
-export default function VisitorsBoard() {
+export default function VisitorsBoard({
+  initialNotes = [],
+  sitekey = "",
+  turnstileBypass = false,
+}: {
+  initialNotes?: Note[];
+  sitekey?: string;
+  turnstileBypass?: boolean;
+}) {
   const boardRef = useRef<HTMLDivElement | null>(null);
-  const [notes, setNotes] = useState<Note[]>([]);
+  const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isModalVisible, setModalVisible] = useState(false);
   const [draftColor, setDraftColor] = useState(COLORS[3]);
   const [draftName, setDraftName] = useState("");
   const [draftMsg, setDraftMsg] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setSubmitting] = useState(false);
   const drawingRef = useRef<DrawingCanvasHandle | null>(null);
+  const turnstileRef = useRef<InvisibleTurnstileHandle | null>(null);
   const modalTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [brushWidth, setBrushWidth] = useState(4);
   const [erase, setErase] = useState(false);
-  const [mounted, setMounted] = useState(false);
+  const mounted = useHasMounted();
   const reducedMotion = useReducedMotion();
+  const visibleNotes = mounted ? notes : [];
+  const notesRef = useRef(notes);
 
-  useEffect(() => setMounted(true), []);
-  useEffect(() => { setNotes(loadNotes()); }, []);
-  useEffect(() => saveNotes(notes), [notes]);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    let cancelled = false;
+    fetch("/api/visitor-notes", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return;
+        const payload = await response.json() as { notes?: Note[] };
+        if (!cancelled && Array.isArray(payload.notes)) setNotes(payload.notes);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [mounted]);
+
   useEffect(() => {
     return () => {
       if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
     };
   }, []);
 
-  const placeRandom = () => {
-    const rect = boardRef.current?.getBoundingClientRect();
-    const w = rect?.width ?? 800; const h = rect?.height ?? 600;
-    return { x: Math.random()*100, y: Math.random()*100*(h/w) };
-  };
-
-  const addNote = useCallback((img: string) => {
-    const p = placeRandom();
-    const note: Note = {
-      id: crypto.randomUUID(),
-      x: clamp01(p.x),
-      y: clamp01(p.y),
-      rotation: randomRotation(),
-      color: draftColor,
-      imageDataUrl: img,
-      name: draftName?.trim() || "unknown",
-      message: draftMsg?.trim() || undefined,
-      createdAt: Date.now(),
-    };
-    setNotes((prev) => [...prev, note]);
-  }, [draftColor, draftName, draftMsg]);
-
   // Drag logic per card
-  const onDrag = (id: string, e: React.MouseEvent) => {
+  const onDrag = useCallback((id: string, e: React.MouseEvent<HTMLDivElement>) => {
     e.preventDefault(); // stop native text-selection / image drag while moving the card
     const board = boardRef.current; if (!board) return;
+    const card = e.currentTarget;
     const rect = board.getBoundingClientRect();
     const startX = e.clientX; const startY = e.clientY;
-    const note = notes.find(n => n.id===id); if (!note) return;
+    const note = notesRef.current.find(n => n.id===id); if (!note) return;
     const orig = { x: note.x, y: note.y };
+    let latest = orig;
 
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startX; const dy = ev.clientY - startY;
       const nx = orig.x + (dx/rect.width)*100;
       const ny = orig.y + (dy/rect.height)*100;
-      setNotes(prev => prev.map(n => n.id===id ? { ...n, x: clamp01(nx), y: clamp01(ny) } : n));
+      latest = { x: clampPercent(nx), y: clampPercent(ny) };
+      card.style.left = `${latest.x}%`;
+      card.style.top = `${latest.y}%`;
     };
     const onUp = () => {
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      setNotes(prev => prev.map(n => n.id===id ? { ...n, x: latest.x, y: latest.y } : n));
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-  };
+  }, []);
 
-  const shuffle = () => {
+  const shuffle = useCallback(() => {
     setNotes(prev => prev.map(n => ({ ...n, rotation: randomRotation() })));
-  };
+  }, []);
 
-  const remove = (id: string) => setNotes(prev => prev.filter(n => n.id !== id));
+  const rotate = useCallback((id: string) => setNotes(prev=>prev.map(x=>x.id===id?{...x, rotation: randomRotation()}:x)), []);
 
   // Modal handlers
   const openModal = () => {
+    setSubmitError(null);
     if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
     setModalOpen(true);
     if (reducedMotion) {
@@ -125,39 +162,49 @@ export default function VisitorsBoard() {
     }, reducedMotion ? 0 : MODAL_EXIT_MS);
   }, [reducedMotion]);
 
-  const submit = () => {
+  const submit = async () => {
+    if (isSubmitting) return;
+    if (!drawingRef.current?.hasDrawing()) {
+      setSubmitError("Draw something before submitting.");
+      return;
+    }
     const data = drawingRef.current?.exportAsDataUrl() || "";
     if (!data) return;
-    addNote(data);
-    // reset
-    setDraftMsg(""); setDraftName("");
-    closeModal();
-  };
+    setSubmitError(null);
+    setSubmitting(true);
+    try {
+      const token = turnstileBypass
+        ? "playwright-turnstile-token"
+        : await turnstileRef.current?.execute();
+      if (!token) throw new Error("Human verification is not ready yet.");
 
-  const renderCard = (n: Note) => {
-    const style: React.CSSProperties = {
-      left: `${n.x}%`, top: `${n.y}%`, transform: `translate(-50%, -50%) rotate(${n.rotation}deg)`
-    };
-    return (
-      <div key={n.id} className={styles.card} style={style} onMouseDown={(e)=>onDrag(n.id, e)}>
-        <div className={styles.toolbar}>
-          <button className={styles.iconBtn} title="Shuffle angle" onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>{e.stopPropagation(); setNotes(prev=>prev.map(x=>x.id===n.id?{...x, rotation: randomRotation()}:x));}}>↻</button>
-          <button className={styles.iconBtn} title="Delete" onMouseDown={(e)=>e.stopPropagation()} onClick={(e)=>{e.stopPropagation(); remove(n.id);}}>✕</button>
-        </div>
-        <div className={styles.cardInner}>
-          <div className={styles.drawPreview} style={{ borderBottomColor: n.color }}>
-            {n.imageDataUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={n.imageDataUrl} alt="note" draggable={false} onDragStart={(e)=>e.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", borderTopLeftRadius: 12, borderTopRightRadius: 12 }} />
-            ) : null}
-          </div>
-          <div className={styles.meta}>
-            <div style={{ fontSize: 12, fontWeight: 600, opacity: 0.85 }}>{n.name || "unknown"}</div>
-            {n.message ? <div className={styles.msg}>{n.message}</div> : null}
-          </div>
-        </div>
-      </div>
-    );
+      const response = await fetch("/api/visitor-notes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: draftName,
+          message: draftMsg,
+          color: draftColor,
+          imageDataUrl: data,
+          cfTurnstileResponse: token,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { note?: Note; error?: string };
+      if (!response.ok || !payload.note) {
+        throw new Error(payload.error ?? "Could not save note.");
+      }
+      const savedNote = payload.note;
+      setNotes((prev) => [...prev.filter((note) => note.id !== savedNote.id), savedNote]);
+      setDraftMsg("");
+      setDraftName("");
+      drawingRef.current?.clear();
+      closeModal();
+    } catch (error) {
+      turnstileRef.current?.reset();
+      setSubmitError(error instanceof Error ? error.message : "Could not save note.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -184,7 +231,7 @@ export default function VisitorsBoard() {
       </div>
       <div ref={boardRef} className={styles.board}>
         <div className={styles.gridBg} />
-        <div className={styles.empty} data-hidden={notes.length > 0 ? "true" : undefined} aria-hidden={notes.length > 0}>
+        <div className={styles.empty} data-hidden={visibleNotes.length > 0 ? "true" : undefined} aria-hidden={visibleNotes.length > 0}>
             <div className={styles.ghostRow} aria-hidden>
               <span className={styles.ghost} style={{ transform: "rotate(-4deg)" }} />
               <span className={styles.ghost} style={{ transform: "rotate(2deg)" }} />
@@ -192,7 +239,9 @@ export default function VisitorsBoard() {
             </div>
             <p className={styles.emptyText}>Be the first to leave a doodle.</p>
         </div>
-        {notes.map(renderCard)}
+        {visibleNotes.map((note) => (
+          <NoteCard key={note.id} note={note} onDrag={onDrag} onRotate={rotate} />
+        ))}
       </div>
 
       {isModalOpen && mounted && createPortal(
@@ -298,6 +347,7 @@ export default function VisitorsBoard() {
                 <input
                   value={draftName}
                   onChange={(e)=>setDraftName(e.target.value)}
+                  maxLength={80}
                   className="rounded-lg border bg-card/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]/40"
                   placeholder="Your name"
                 />
@@ -305,11 +355,23 @@ export default function VisitorsBoard() {
                 <textarea
                   value={draftMsg}
                   onChange={(e)=>setDraftMsg(e.target.value)}
+                  maxLength={220}
                   className="rounded-lg border bg-card/30 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]/40"
                   placeholder="Leave a message..."
                   rows={2}
                 />
               </div>
+              {sitekey && !turnstileBypass ? (
+                <InvisibleTurnstile
+                  ref={turnstileRef}
+                  sitekey={sitekey}
+                  action="visitor-note"
+                  onError={() => setSubmitError("Human verification could not load.")}
+                />
+              ) : null}
+              {submitError ? (
+                <p className="text-sm text-red-400" role="alert">{submitError}</p>
+              ) : null}
 
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-2">
@@ -319,7 +381,7 @@ export default function VisitorsBoard() {
                 >
                   Cancel
                 </button>
-                <HoldToSubmit onSubmit={submit} />
+                <HoldToSubmit onSubmit={submit} disabled={isSubmitting || (!sitekey && !turnstileBypass)} />
               </div>
             </div>
           </div>

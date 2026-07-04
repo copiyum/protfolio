@@ -1,28 +1,44 @@
 "use server";
 import { updateTag } from "next/cache";
 import { FeatureFlagInput } from "../schema/feature-flags";
-import { prepareAudit } from "../audit";
 import { requireActionAdmin } from "./_security";
+
+function parseFlagInput(input: unknown): unknown {
+  if (!input || typeof input !== "object") return input;
+  const record = input as Record<string, unknown>;
+  const value = record.value;
+  if (typeof value !== "string") return input;
+  const trimmed = value.trim();
+  if (!trimmed) return { ...record, value: "" };
+  try {
+    return { ...record, value: JSON.parse(trimmed) };
+  } catch {
+    return { ...record, value };
+  }
+}
 
 // Feature flags use `key` as PK, not `id`. Special-case instead of forcing generic shape.
 export async function listFlags() {
   const admin = await requireActionAdmin();
-  const db = admin.env.DB;
+  const db = admin.db;
   const rows = await db.prepare("SELECT key, value FROM feature_flags ORDER BY key").all<{ key: string; value: string }>();
-  return rows.results.map((r) => ({ key: r.key, value: JSON.parse(r.value) }));
+  return rows.results.map((r) => {
+    try {
+      return { key: r.key, value: JSON.parse(r.value) as unknown };
+    } catch {
+      return { key: r.key, value: r.value };
+    }
+  });
 }
 
 export async function setFlag(input: unknown): Promise<{ ok: true }> {
   const admin = await requireActionAdmin({ write: true });
-  const parsed = FeatureFlagInput.parse(input);
-  const db = admin.env.DB;
-  const audit = prepareAudit(db, {
+  const parsed = FeatureFlagInput.parse(parseFlagInput(input));
+  const db = admin.db;
+  const audit = admin.prepareAudit({
     action: "set_flag",
     targetTable: "feature_flags",
     targetId: parsed.key,
-    actorCredentialId: admin.credentialId,
-    ip: admin.meta.ip,
-    ua: admin.meta.ua,
     diff: { value: parsed.value },
   });
   await db.batch([
@@ -38,14 +54,11 @@ export async function setFlag(input: unknown): Promise<{ ok: true }> {
 
 export async function deleteFlag(key: string): Promise<{ ok: true }> {
   const admin = await requireActionAdmin({ write: true, fresh: true });
-  const db = admin.env.DB;
-  const audit = prepareAudit(db, {
+  const db = admin.db;
+  const audit = admin.prepareAudit({
     action: "delete_flag",
     targetTable: "feature_flags",
     targetId: key,
-    actorCredentialId: admin.credentialId,
-    ip: admin.meta.ip,
-    ua: admin.meta.ua,
   });
   await db.batch([
     db.prepare("DELETE FROM feature_flags WHERE key = ?").bind(key),

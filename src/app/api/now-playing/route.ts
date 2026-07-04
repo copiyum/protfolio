@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { consume } from "@/lib/admin/ratelimit";
 
 export interface NowPlayingData {
   playing: boolean;
@@ -25,6 +27,33 @@ interface LastFmTrack {
 
 const FALLBACK_ACCENT_COLOR = "#1db954";
 const ART_PROXY_PATH = "/api/now-playing/art";
+const PUBLIC_API_LIMIT = 120;
+const PUBLIC_API_WINDOW_SEC = 60;
+const ALBUM_ART_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
+
+async function getPublicApiDb(): Promise<D1Database | null> {
+  try {
+    const ctx = await getCloudflareContext({ async: true });
+    return (ctx.env as unknown as { DB?: D1Database }).DB ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function enforcePublicRateLimit(request: Request, db: D1Database | null): Promise<Response | null> {
+  try {
+    if (!db) return null;
+    const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const ok = await consume(db, `public-api:${ip}:now-playing`, PUBLIC_API_LIMIT, PUBLIC_API_WINDOW_SEC);
+    if (ok) return null;
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(PUBLIC_API_WINDOW_SEC) } },
+    );
+  } catch {
+    return null;
+  }
+}
 
 function upgradeItunesArtworkUrl(raw: string): string {
   // iTunes returns URLs in a couple of shapes depending on CDN/age:
@@ -55,6 +84,10 @@ function cleanTrackTitle(track: string): string {
     .trim();
 }
 
+function albumArtCacheKey(artist: string, track: string): string {
+  return `${artist} ${cleanTrackTitle(track)}`.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
 function getLastFmAlbumArt(track: LastFmTrack | undefined): string | null {
   const images = Array.isArray(track?.image) ? track.image : [];
   for (const image of [...images].reverse()) {
@@ -66,7 +99,42 @@ function getLastFmAlbumArt(track: LastFmTrack | undefined): string | null {
   return null;
 }
 
-async function getAlbumArt(artist: string, track: string): Promise<string | null> {
+async function readCachedAlbumArt(db: D1Database | null, cacheKey: string) {
+  if (!db || !cacheKey) return null;
+  try {
+    const row = await db
+      .prepare("SELECT art_url, created_at FROM album_art_cache WHERE cache_key = ?")
+      .bind(cacheKey)
+      .first<{ art_url: string | null; created_at: number }>();
+    if (!row) return null;
+    return {
+      artUrl: row.art_url,
+      fresh: Math.floor(Date.now() / 1000) - row.created_at < ALBUM_ART_CACHE_TTL_SEC,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedAlbumArt(db: D1Database | null, cacheKey: string, artUrl: string | null) {
+  if (!db || !cacheKey) return;
+  try {
+    await db
+      .prepare(
+        `INSERT INTO album_art_cache (cache_key, art_url, created_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(cache_key) DO UPDATE SET
+           art_url = excluded.art_url,
+           created_at = excluded.created_at`,
+      )
+      .bind(cacheKey, artUrl, Math.floor(Date.now() / 1000))
+      .run();
+  } catch {
+    // Cache writes are best-effort; the music payload should not fail because of them.
+  }
+}
+
+async function searchItunesAlbumArt(artist: string, track: string): Promise<string | null> {
   const queries = Array.from(new Set([
     `${artist} ${track}`,
     `${artist} ${cleanTrackTitle(track)}`,
@@ -78,7 +146,7 @@ async function getAlbumArt(artist: string, track: string): Promise<string | null
       const q = encodeURIComponent(query);
       const res = await fetch(
         `https://itunes.apple.com/search?term=${q}&entity=song&limit=3`,
-        { cache: "no-store" }
+        { next: { revalidate: ALBUM_ART_CACHE_TTL_SEC } },
       );
       const data = (await res.json()) as {
         resultCount?: number;
@@ -96,7 +164,21 @@ async function getAlbumArt(artist: string, track: string): Promise<string | null
   return null;
 }
 
-export async function GET() {
+async function getAlbumArt(db: D1Database | null, artist: string, track: string): Promise<string | null> {
+  const cacheKey = albumArtCacheKey(artist, track);
+  const cached = await readCachedAlbumArt(db, cacheKey);
+  if (cached?.fresh) return cached.artUrl;
+
+  const artUrl = await searchItunesAlbumArt(artist, track);
+  await writeCachedAlbumArt(db, cacheKey, artUrl);
+  return artUrl ?? cached?.artUrl ?? null;
+}
+
+export async function GET(request: Request) {
+  const db = await getPublicApiDb();
+  const limited = await enforcePublicRateLimit(request, db);
+  if (limited) return limited;
+
   const apiKey = process.env.LASTFM_API_KEY;
   const username = process.env.LASTFM_USERNAME;
 
@@ -128,7 +210,7 @@ export async function GET() {
   const album: string = track?.album?.["#text"] ?? "";
   const lastPlayedAt: string | undefined = track?.date?.["#text"];
 
-  const artUrl = getLastFmAlbumArt(track) ?? await getAlbumArt(artist, title);
+  const artUrl = getLastFmAlbumArt(track) ?? await getAlbumArt(db, artist, title);
 
   const payload: NowPlayingData = {
     playing,

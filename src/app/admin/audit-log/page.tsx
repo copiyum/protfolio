@@ -1,14 +1,7 @@
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { listAuditRows } from "@/lib/admin/queries";
 
-interface AuditRow {
-  id: string;
-  actor_credential_id: string | null;
-  action: string;
-  target_table: string | null;
-  target_id: string | null;
-  ip: string | null;
-  ts: string;
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AuditLogPage({
   searchParams,
@@ -16,25 +9,7 @@ export default async function AuditLogPage({
   searchParams: Promise<{ actor?: string; table?: string }>;
 }) {
   const sp = await searchParams;
-  const ctx = await getCloudflareContext({ async: true });
-  const db = (ctx.env as unknown as { DB: D1Database }).DB;
-
-  const filters: string[] = [];
-  const args: unknown[] = [];
-  if (sp.actor) {
-    filters.push("actor_credential_id = ?");
-    args.push(sp.actor);
-  }
-  if (sp.table) {
-    filters.push("target_table = ?");
-    args.push(sp.table);
-  }
-  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
-  const result = await db
-    .prepare(`SELECT id, actor_credential_id, action, target_table, target_id, ip, ts FROM audit_log ${where} ORDER BY ts DESC LIMIT 200`)
-    .bind(...args)
-    .all<AuditRow>();
-  const rows = result.results;
+  const rows = await listAuditRows(sp);
 
   return (
     <div>

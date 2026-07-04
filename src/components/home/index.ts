@@ -1,0 +1,14 @@
+export { default as BentoBlock } from "./bento-block";
+export { default as BioText } from "./bio-text";
+export { DateRange } from "./DateRange";
+export { default as Experience } from "./experience";
+export { default as FeaturedProjects } from "./featured-projects";
+export { default as IntroSection } from "./intro-section";
+export { default as MapSection } from "./map-section";
+export { default as NowPlaying } from "./now-playing";
+export { default as ProfileBlock } from "./profile-block";
+export { default as ProjectItem } from "./project-item";
+export { SkillTags } from "./SkillTags";
+export { default as SocialLinks } from "./social-links";
+export { default as TechStack } from "./tech-stack";
+export { default as TextHighlights } from "./text-highlights";

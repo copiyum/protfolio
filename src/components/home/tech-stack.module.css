@@ -2,6 +2,11 @@
   transform: var(--card-transform);
 }
 
+.cursorArea,
+.cursorArea * {
+  cursor: none;
+}
+
 .bounceOnce {
   animation: bounce-once var(--bounce-duration, 0.3s) ease-out;
 }

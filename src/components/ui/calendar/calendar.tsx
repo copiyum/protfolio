@@ -95,9 +95,17 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
     } else {
       positionOverlayToIndex(selectedIdx);
     }
-    setReady(true);
-    if (reducedMotion) updateGlow();
-    else requestAnimationFrame(updateGlow);
+    const readyFrame = requestAnimationFrame(() => setReady(true));
+    let glowFrame: number | null = null;
+    if (reducedMotion) {
+      updateGlow();
+    } else {
+      glowFrame = requestAnimationFrame(updateGlow);
+    }
+    return () => {
+      cancelAnimationFrame(readyFrame);
+      if (glowFrame !== null) cancelAnimationFrame(glowFrame);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reducedMotion]);
 

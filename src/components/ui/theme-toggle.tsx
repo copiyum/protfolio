@@ -1,9 +1,10 @@
 "use client";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
 
 import { cn } from "@/lib/utils";
+import useHasMounted from "@/hooks/use-has-mounted";
 
 const STYLE_ID = "theme-transition-styles";
 
@@ -59,14 +60,13 @@ const buildCircleBlurCss = (xPct: number, yPct: number) => {
 `;
 };
 
-export const ThemeToggleButton2 = ({
+export const ThemeToggleButton = ({
   className = "",
 }: {
   className?: string;
 }) => {
   const { setTheme, resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHasMounted();
 
   // suppressHydrationWarning: skip until mounted so the SVG renders the correct
   // dark/light state on first paint without flicker. Before mount, default to

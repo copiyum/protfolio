@@ -20,4 +20,9 @@ describe("admin URL schemas", () => {
     expect(() => InternalPath.parse("https://example.com")).toThrow();
     expect(() => InternalPath.parse("//example.com")).toThrow();
   });
+
+  it("rejects dot-segment internal paths", () => {
+    expect(() => InternalPath.parse("/../../../etc/passwd")).toThrow();
+    expect(() => OptionalHttpsUrl.parse("/projects/../admin")).toThrow();
+  });
 });

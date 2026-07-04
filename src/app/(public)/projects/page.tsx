@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import AnimatedStars from "@/components/ui/animated-stars";
 import SectionPanel from "@/components/ui/section-panel";
 import ProjectItem from "@/components/home/project-item";
-import { projects } from "@/data/projects";
+import { getProjects } from "@/lib/admin/read";
 
 export const metadata: Metadata = { title: "Projects — Sarang" };
+export const revalidate = 300;
 
-export default function ProjectsPage() {
+export default async function ProjectsPage() {
+  const projects = await getProjects();
+
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
       <AnimatedStars />

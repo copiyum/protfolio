@@ -1,18 +1,8 @@
 "use server";
-import { defineCrud } from "./_crud";
-import { NavItemInput } from "../schema/nav";
+import { navPlugin } from "../entities";
+import { defineEntityCrud } from "./entity-crud";
 
-const cols = ["id", "label", "href", "sort_order", "visible"] as const;
-
-const crud = defineCrud({
-  table: "nav_items",
-  tag: "nav",
-  columns: cols,
-  schema: {
-    parse: (i) => NavItemInput.parse(i),
-    partial: () => ({ parse: (i) => NavItemInput.partial().parse(i) }),
-  },
-});
+const crud = defineEntityCrud(navPlugin);
 
 export const listNav = crud.list;
 export const getNav = crud.get;

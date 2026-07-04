@@ -1,13 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { applySecurityHeaders, buildContentSecurityPolicy, enforceAdminIpRate, verifyCfAccessJwt } from "@/lib/admin/middleware";
-import { renewStoredSession, signSession, verifySession, verifyStoredSession, type SessionPayload } from "@/lib/admin/session";
+import { applySecurityHeaders, buildContentSecurityPolicy, enforceAdminIpRate } from "@/lib/admin/middleware";
+import {
+  ADMIN_COOKIE_NAME,
+  ADMIN_SESSION_TTL_MS,
+  PUBLIC_ADMIN_PATHS,
+  SECOND_PASSKEY_PATH,
+  SENSITIVE_ADMIN_PATH,
+  createAuthGuard,
+  type AdminAuthEnv,
+  type EdgeGuardSuccess,
+} from "@/lib/admin/auth-guard";
 
-const SESSION_COOKIE = "__Host-pf_admin";
-const SESSION_TTL_MS = 15 * 60 * 1000;
-const SESSION_RENEW_THRESHOLD_MS = 5 * 60 * 1000;
-const PUBLIC_ADMIN_PATHS = /^\/admin\/(login|setup)\/?$/;
-const SECOND_PASSKEY_PATH = /^\/admin\/passkeys\/register\/?$/;
+function isPlaywrightDevBypass() {
+  return process.env.NODE_ENV === "development" && process.env.PLAYWRIGHT_TEST === "1";
+}
 
 // Cloudflare auto-injects the Web Analytics beacon into every page on the zone
 // via the edge (before our Worker runs). The bundled `integrity` SRI hash no
@@ -41,7 +48,7 @@ async function stripCfBeacon(response: Response): Promise<Response> {
 }
 
 function expireSessionCookie(res: NextResponse): void {
-  res.cookies.set(SESSION_COOKIE, "", {
+  res.cookies.set(ADMIN_COOKIE_NAME, "", {
     httpOnly: true,
     secure: true,
     sameSite: "lax",
@@ -50,60 +57,55 @@ function expireSessionCookie(res: NextResponse): void {
   });
 }
 
-interface AdminEdgeEnv {
-  DB: D1Database;
-  ADMIN_COOKIE_SECRET: string;
-  CF_ACCESS_AUD: string;
-  CF_ACCESS_TEAM_DOMAIN: string;
-}
+type AdminEdgeEnv = AdminAuthEnv;
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isAdmin = pathname.startsWith("/admin");
   let adminEnv: AdminEdgeEnv | null = null;
-  let renewal: { session: SessionPayload; expiresAt: string } | null = null;
+  let renewal: EdgeGuardSuccess["renewal"];
 
   if (isAdmin) {
+    const playwrightBypass = isPlaywrightDevBypass();
     const ctx = await getCloudflareContext({ async: true });
     const env = ctx.env as unknown as AdminEdgeEnv;
+    const guard = createAuthGuard(env);
     adminEnv = env;
 
     // L5 — per-IP rate limit on /admin/login + /admin/setup only (not all /admin/*
     // because Next.js RSC fans out ~10 fetches per page load, which would self-DDoS).
-    const blocked = await enforceAdminIpRate(request, env);
-    if (blocked) return blocked;
-
-    // L1 — CF Access JWT. Edge already gates this, but verify app-side so a
-    // misconfigured route never serves the admin shell to unauth'd callers.
-    const cfJwt = request.headers.get("cf-access-jwt-assertion");
-    const cfOk = cfJwt ? await verifyCfAccessJwt(cfJwt, env.CF_ACCESS_AUD, env.CF_ACCESS_TEAM_DOMAIN) : false;
-    if (!cfOk) {
-      return new NextResponse("CF Access required", { status: 401 });
+    if (!playwrightBypass) {
+      const blocked = await enforceAdminIpRate(request, env);
+      if (blocked) return blocked;
     }
+
+    const cfAccess = await guard.edgeMiddleware(request, { skipCfAccess: playwrightBypass });
+    if (cfAccess instanceof Response) return cfAccess;
 
     // L2 — passkey session. Skip on /admin/login and /admin/setup (the entry
     // points); everything else requires a valid __Host-pf_admin cookie.
     if (!PUBLIC_ADMIN_PATHS.test(pathname)) {
-      const cookie = request.cookies.get(SESSION_COOKIE)?.value;
-      if (!cookie) {
-        return NextResponse.redirect(new URL("/admin/login", request.url));
+      const auth = await guard.edgeMiddleware(request, {
+        requireSession: true,
+        fresh: request.method !== "GET" && SENSITIVE_ADMIN_PATH.test(pathname),
+        skipCfAccess: true,
+      });
+      if (auth instanceof Response) {
+        const message = await auth.text();
+        if (message === "Login required" || message === "Session expired") {
+          const res = NextResponse.redirect(new URL("/admin/login", request.url));
+          if (message === "Session expired") expireSessionCookie(res);
+          return res;
+        }
+        return new NextResponse(message, { status: auth.status });
       }
-      const session = await verifySession(cookie, env.ADMIN_COOKIE_SECRET);
-      if (!session || !(await verifyStoredSession(env.DB, session))) {
-        const res = NextResponse.redirect(new URL("/admin/login", request.url));
-        expireSessionCookie(res);
-        return res;
+      renewal = auth.renewal;
+      if (!auth.credentialId) {
+        return NextResponse.redirect(new URL("/admin/login", request.url));
       }
       const passkeyCount = await env.DB.prepare("SELECT COUNT(*) AS c FROM passkeys").first<{ c: number }>();
       if ((passkeyCount?.c ?? 0) < 2 && !SECOND_PASSKEY_PATH.test(pathname)) {
         return NextResponse.redirect(new URL("/admin/passkeys/register?required=1", request.url));
-      }
-
-      const expiresAtMs = new Date(session.expiresAt).getTime();
-      if (session.sessionId && expiresAtMs - Date.now() < SESSION_RENEW_THRESHOLD_MS) {
-        const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
-        await renewStoredSession(env.DB, session.sessionId, expiresAt);
-        renewal = { session, expiresAt };
       }
     }
   }
@@ -119,13 +121,12 @@ export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: requestHeaders } });
   applySecurityHeaders(response, pathname, nonce);
   if (renewal && adminEnv) {
-    const cookie = await signSession({ ...renewal.session, expiresAt: renewal.expiresAt }, adminEnv.ADMIN_COOKIE_SECRET);
-    response.cookies.set(SESSION_COOKIE, cookie, {
+    response.cookies.set(ADMIN_COOKIE_NAME, renewal.cookie, {
       httpOnly: true,
       secure: true,
       sameSite: "lax",
       path: "/",
-      maxAge: SESSION_TTL_MS / 1000,
+      maxAge: ADMIN_SESSION_TTL_MS / 1000,
     });
   }
 

@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS posts (
   tags TEXT NOT NULL DEFAULT '[]',
   cover TEXT,
   content TEXT NOT NULL DEFAULT '[]',
-  published INTEGER NOT NULL DEFAULT 1,
+  published INTEGER NOT NULL DEFAULT 1 CHECK (published IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS projects (
   logo TEXT,
   description TEXT,
   skills TEXT NOT NULL DEFAULT '[]',
-  featured INTEGER NOT NULL DEFAULT 0,
-  is_expanded INTEGER NOT NULL DEFAULT 0,
+  featured INTEGER NOT NULL DEFAULT 0 CHECK (featured IN (0, 1)),
+  is_expanded INTEGER NOT NULL DEFAULT 0 CHECK (is_expanded IN (0, 1)),
   sort_order INTEGER NOT NULL DEFAULT 1000,
-  published INTEGER NOT NULL DEFAULT 1,
+  published INTEGER NOT NULL DEFAULT 1 CHECK (published IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS experiences (
   description TEXT,
   skills TEXT NOT NULL DEFAULT '[]',
   sort_order INTEGER NOT NULL DEFAULT 1000,
-  published INTEGER NOT NULL DEFAULT 1,
+  published INTEGER NOT NULL DEFAULT 1 CHECK (published IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS social_links (
   label TEXT NOT NULL,
   href TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 1000,
-  published INTEGER NOT NULL DEFAULT 1,
+  published INTEGER NOT NULL DEFAULT 1 CHECK (published IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS tech_stack (
   icon TEXT,
   category TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 1000,
-  published INTEGER NOT NULL DEFAULT 1,
+  published INTEGER NOT NULL DEFAULT 1 CHECK (published IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS bento_cells (
   col_span INTEGER NOT NULL DEFAULT 1,
   row_span INTEGER NOT NULL DEFAULT 1,
   sort_order INTEGER NOT NULL DEFAULT 1000,
-  visible INTEGER NOT NULL DEFAULT 1,
+  visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
   visibility_window TEXT,
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS nav_items (
   label TEXT NOT NULL,
   href TEXT NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 1000,
-  visible INTEGER NOT NULL DEFAULT 1,
+  visible INTEGER NOT NULL DEFAULT 1 CHECK (visible IN (0, 1)),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );

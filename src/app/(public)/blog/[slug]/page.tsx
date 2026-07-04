@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
 import AnimatedStars from "@/components/ui/animated-stars";
-import { posts } from "@/data/posts";
+import { fallback } from "@/data/fallback";
+import { getPostBySlug } from "@/lib/admin/read";
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
@@ -13,20 +14,22 @@ const readingTime = (paragraphs: string[]) => {
   return Math.max(1, Math.round(words / 200));
 };
 
+export const revalidate = 300;
+
 export function generateStaticParams() {
-  return posts.map((p) => ({ slug: p.slug }));
+  return fallback.posts.map((p) => ({ slug: p.slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const post = posts.find((p) => p.slug === slug);
+  const post = await getPostBySlug(slug);
   if (!post) return { title: "Post not found — Sarang" };
   return { title: `${post.title} — Sarang`, description: post.summary };
 }
 
 export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const post = posts.find((p) => p.slug === slug);
+  const post = await getPostBySlug(slug);
   if (!post) notFound();
 
   return (

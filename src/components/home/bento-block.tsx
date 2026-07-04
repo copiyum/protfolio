@@ -1,14 +1,15 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import useISTClock from "@/hooks/use-ist-clock";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import useTimezoneClock from "@/hooks/use-timezone-clock";
 import useAlbumAccent from "@/hooks/use-album-accent";
-import { bentoCustomCell } from "@/data/bento";
 import NowPlaying from "@/components/home/now-playing";
 import type { NowPlayingData } from "@/app/api/now-playing/route";
+import type { ProfileSettings } from "@/lib/profile-settings";
 
 const POLL_INTERVAL = 30_000;
+type BentoCell = { kind: string; label: string; value?: string; sub?: string };
 
-function GlowCardGrid({ children }: { children: React.ReactNode }) {
+const GlowCardGrid = memo(function GlowCardGrid({ children }: { children: React.ReactNode }) {
 	const ref = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
@@ -54,9 +55,9 @@ function GlowCardGrid({ children }: { children: React.ReactNode }) {
 			{children}
 		</div>
 	);
-}
+});
 
-function GlowCard({
+const GlowCard = memo(function GlowCard({
 	children,
 	glowColor,
 	className = "",
@@ -116,17 +117,17 @@ function GlowCard({
 			)}
 		</div>
 	);
-}
+});
 
-function CellLabel({ children }: { children: React.ReactNode }) {
+const CellLabel = memo(function CellLabel({ children }: { children: React.ReactNode }) {
 	return (
 		<p className="mb-1 text-[10px] uppercase tracking-[0.1em] text-[color:var(--foreground)]/30">
 			{children}
 		</p>
 	);
-}
+});
 
-function CellValue({
+const CellValue = memo(function CellValue({
 	children,
 	className = "",
 	suppressHydrationWarning,
@@ -143,9 +144,9 @@ function CellValue({
 			{children}
 		</p>
 	);
-}
+});
 
-function CellSub({
+const CellSub = memo(function CellSub({
 	children,
 	suppressHydrationWarning,
 }: {
@@ -160,12 +161,83 @@ function CellSub({
 			{children}
 		</p>
 	);
-}
+});
+
+const LocationCell = memo(function LocationCell({ locationLabel }: { locationLabel: string }) {
+	return (
+		<GlowCard>
+			<CellLabel>Based in</CellLabel>
+			<CellValue>{locationLabel}</CellValue>
+		</GlowCard>
+	);
+});
+
+const ClockCell = memo(function ClockCell({
+	timezone,
+	timezoneLabel,
+}: {
+	timezone: string;
+	timezoneLabel: string;
+}) {
+	const { time, offsetLabel } = useTimezoneClock(timezone);
+
+	return (
+		<GlowCard className="group">
+			<CellLabel>Local time</CellLabel>
+			<CellValue className="tabular-nums" suppressHydrationWarning>
+				{time}
+			</CellValue>
+			<CellSub suppressHydrationWarning>
+				<span className="group-hover:hidden">{timezoneLabel}</span>
+				<span className="hidden group-hover:inline">{offsetLabel}</span>
+			</CellSub>
+		</GlowCard>
+	);
+});
+
+const CustomCell = memo(function CustomCell({ cell }: { cell: BentoCell }) {
+	return (
+		<GlowCard>
+			<CellLabel>{cell.label}</CellLabel>
+			<CellValue>{cell.value}</CellValue>
+			<CellSub>{cell.sub}</CellSub>
+		</GlowCard>
+	);
+});
+
+const NowPlayingCell = memo(function NowPlayingCell({
+	albumAccent,
+	np,
+}: {
+	albumAccent: string | null;
+	np: NowPlayingData | null;
+}) {
+	const playingAccent = np?.playing ? (albumAccent ?? np.accentColor ?? null) : null;
+
+	return (
+		<GlowCard glowColor={playingAccent} className="col-span-3">
+			<CellLabel>Now Playing</CellLabel>
+			<NowPlaying
+				loading={np === null}
+				playing={np?.playing ?? false}
+				title={np?.title ?? ""}
+				artist={np?.artist ?? ""}
+				artUrl={np?.artUrl ?? null}
+				accentColor={playingAccent}
+			/>
+		</GlowCard>
+	);
+});
 
 // ── BentoBlock ────────────────────────────────────────────────────────────────
-export default function BentoBlock() {
-	const { time, userOffset } = useISTClock();
+export default function BentoBlock({ cells, profile }: { cells: BentoCell[]; profile: ProfileSettings }) {
 	const [np, setNp] = useState<NowPlayingData | null>(null);
+	const customCell = useMemo(() => cells.find((cell) => cell.kind === "custom") ?? {
+		kind: "custom",
+		label: "Currently",
+		value: "Building in public",
+		sub: "shipping something new",
+	}, [cells]);
 
 	useEffect(() => {
 		const fetchNp = async () => {
@@ -182,51 +254,15 @@ export default function BentoBlock() {
 		return () => clearInterval(id);
 	}, []);
 
-	const offsetLabel =
-		userOffset === 0
-			? "same timezone"
-			: `${Math.abs(userOffset)}h ${userOffset > 0 ? "ahead of" : "behind"} you`;
 	const nowPlayingArt = np?.playing && np.artUrl ? np.artUrl : null;
 	const albumAccent = useAlbumAccent(nowPlayingArt);
 
 	return (
 		<GlowCardGrid>
-			{/* Based in */}
-			<GlowCard>
-				<CellLabel>Based in</CellLabel>
-				<CellValue>Bangalore</CellValue>
-			</GlowCard>
-
-			{/* Local time — hover swaps subtitle from "IST" to offset label */}
-			<GlowCard className="group">
-				<CellLabel>Local time</CellLabel>
-				<CellValue className="tabular-nums" suppressHydrationWarning>
-					{time}
-				</CellValue>
-				<CellSub suppressHydrationWarning>
-					<span className="group-hover:hidden">IST</span>
-					<span className="hidden group-hover:inline">{offsetLabel}</span>
-				</CellSub>
-			</GlowCard>
-
-			{/* Custom cell — edit src/data/bento.ts */}
-			<GlowCard>
-				<CellLabel>{bentoCustomCell.label}</CellLabel>
-				<CellValue>{bentoCustomCell.value}</CellValue>
-				<CellSub>{bentoCustomCell.sub}</CellSub>
-			</GlowCard>
-
-			{/* Now Playing — full width, album art drives the sampled glow color. */}
-			<GlowCard glowColor={albumAccent} className="col-span-3">
-				<CellLabel>Now Playing</CellLabel>
-				<NowPlaying
-					playing={np?.playing ?? false}
-					title={np?.title ?? ""}
-					artist={np?.artist ?? ""}
-					artUrl={np?.artUrl ?? null}
-					accentColor={albumAccent ?? np?.accentColor ?? null}
-				/>
-			</GlowCard>
+			<LocationCell locationLabel={profile.locationLabel} />
+			<ClockCell timezone={profile.timezone} timezoneLabel={profile.timezoneLabel} />
+			<CustomCell cell={customCell} />
+			<NowPlayingCell albumAccent={albumAccent} np={np} />
 		</GlowCardGrid>
 	);
 }

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 
 const items = [
   { href: "/admin", label: "Dashboard" },
+  { href: "/admin/profile", label: "Profile" },
   { href: "/admin/posts", label: "Posts" },
   { href: "/admin/projects", label: "Projects" },
   { href: "/admin/experiences", label: "Experience" },
@@ -13,6 +14,7 @@ const items = [
   { href: "/admin/feature-flags", label: "Flags" },
   { href: "/admin/nav", label: "Nav" },
   { href: "/admin/seo", label: "SEO" },
+  { href: "/admin/visitor-notes", label: "Visitor Notes" },
   { href: "/admin/passkeys", label: "Passkeys" },
   { href: "/admin/audit-log", label: "Audit Log" },
 ];

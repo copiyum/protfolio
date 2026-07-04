@@ -118,10 +118,20 @@ body {
 	z-index: 2;
 }
 
-.tech-card-wrapper:hover::before {
-	opacity: 1;
-	animation: diagonal-sweep 1.8s var(--ease-standard) infinite alternate;
-}
+	.tech-card-wrapper:hover::before {
+		opacity: 1;
+		animation: diagonal-sweep 1.8s var(--ease-standard) infinite alternate;
+	}
+
+	@supports not ((mask-composite: exclude) or (-webkit-mask-composite: xor)) {
+		.tech-card-wrapper::before {
+			display: none;
+		}
+
+		.tech-card-wrapper:hover .tech-card {
+			box-shadow: 0 0 0 1px var(--glow-color, var(--accent));
+		}
+	}
 
 @keyframes diagonal-sweep {
 	from {

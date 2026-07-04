@@ -16,15 +16,6 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
-  {
-    rules: {
-      // These patterns are intentional: hydration guards, media-query sync,
-      // localStorage init — all legitimate "sync with external system" effects.
-      "react-hooks/set-state-in-effect": "off",
-      // Flags Date.now() inside event handlers as "impure during render" — false positive.
-      "react-hooks/purity": "off",
-    },
-  },
 ];
 
 export default eslintConfig;

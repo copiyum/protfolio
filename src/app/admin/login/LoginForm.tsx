@@ -1,70 +1,50 @@
 "use client";
-import { useState } from "react";
-import { startAuthentication } from "@simplewebauthn/browser";
-import { beginLogin, completeLogin } from "@/lib/admin/actions/auth";
-import { TurnstileWidget } from "@/components/admin/TurnstileWidget";
 
-export function LoginForm({ sitekey }: { sitekey: string }) {
-  const [stage, setStage] = useState<"idle" | "asserting" | "error">("idle");
-  const [error, setError] = useState<string | null>(null);
-  const [turnstileToken, setTurnstileToken] = useState<string>("");
-  const [turnstileFailed, setTurnstileFailed] = useState(false);
-  const challengeReady = !!turnstileToken;
+import { AdminButton, ErrorBanner, TurnstileWidget, WarningBanner } from "@/components/admin";
+import {
+  passkeyFormData,
+  runPasskeyAuthentication,
+  useWebAuthnFlow,
+} from "@/components/admin/useWebAuthn";
+import { beginLoginAction, completeLoginAction } from "@/lib/admin/actions/auth";
 
-  async function start() {
-    if (!sitekey) {
-      setError("Bot challenge is not configured.");
-      return;
-    }
-    if (!turnstileToken) {
-      setError("Complete the bot challenge and retry.");
-      return;
-    }
-    try {
-      setStage("asserting");
-      setError(null);
-      const optionsJSON = await beginLogin();
-      const responseJSON = await startAuthentication({ optionsJSON });
-      const fd = new FormData();
-      fd.set("response", JSON.stringify(responseJSON));
-      fd.set("cf-turnstile-response", turnstileToken);
-      const result = await completeLogin(fd);
+export function LoginForm({ sitekey, turnstileBypass = false }: { sitekey: string; turnstileBypass?: boolean }) {
+  const flow = useWebAuthnFlow({
+    sitekey,
+    turnstileBypass,
+    begin: beginLoginAction,
+    ceremony: runPasskeyAuthentication,
+    complete: completeLoginAction,
+    formData: (responseJSON, token) => passkeyFormData({ responseJSON, token }),
+    onSuccess: (result) => {
       window.location.href = result.redirect;
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Login failed";
-      setError(msg);
-      setStage("error");
-    }
-  }
+    },
+    fallbackError: "Login failed",
+  });
 
   return (
     <div className="mx-auto max-w-md p-8">
       <h1 className="mb-4 text-2xl font-semibold">Admin Login</h1>
-      {error && <p className="mb-4 rounded border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-500">{error}</p>}
-      {!sitekey && (
-        <p className="mb-4 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-sm text-amber-400">
-          Bot challenge is not configured.
-        </p>
-      )}
-      {turnstileFailed && (
-        <p className="mb-4 rounded border border-amber-500/30 bg-amber-500/10 p-2 text-sm text-amber-400">
-          Bot challenge failed to load. Disable content blockers (uBlock, Privacy Badger, etc.)
-          or allow <code className="font-mono text-xs">challenges.cloudflare.com</code> and reload.
-        </p>
-      )}
-      <button
-        onClick={start}
-        disabled={stage === "asserting" || !challengeReady}
-        className="w-full rounded bg-[color:var(--foreground)] px-4 py-2 text-[color:var(--background)] disabled:opacity-50"
-      >
-        {stage === "asserting" ? "Awaiting authenticator..." : challengeReady ? "Sign in with passkey" : "Complete bot check"}
-      </button>
-      {sitekey && (
+      <div className="mb-4 space-y-3">
+        {flow.error && <ErrorBanner>{flow.error}</ErrorBanner>}
+        {!sitekey && !turnstileBypass && <WarningBanner>Bot challenge is not configured.</WarningBanner>}
+        {flow.turnstile.failed && (
+          <WarningBanner>
+            Bot challenge failed to load. Disable content blockers (uBlock, Privacy Badger, etc.)
+            or allow <code className="font-mono text-xs">challenges.cloudflare.com</code> and reload.
+          </WarningBanner>
+        )}
+      </div>
+      <AdminButton onClick={() => void flow.run()} disabled={flow.busy || !flow.challengeReady} fullWidth className="px-4 py-2 text-base">
+        {flow.busy ? "Awaiting authenticator..." : flow.challengeReady ? "Sign in with passkey" : "Complete bot check"}
+      </AdminButton>
+      {sitekey && !turnstileBypass && (
         <TurnstileWidget
           sitekey={sitekey}
           action="login"
-          onToken={setTurnstileToken}
-          onError={() => setTurnstileFailed(true)}
+          onToken={flow.turnstile.handleToken}
+          onError={flow.turnstile.handleError}
+          resetKey={flow.turnstile.resetKey}
         />
       )}
     </div>

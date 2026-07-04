@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "next-themes";
@@ -8,7 +8,7 @@ import Image from "next/image";
 import useReducedMotion from "@/hooks/use-reduced-motion";
 
 // Map placement/tuning — single-use, so it lives with its only consumer.
-const KOCHI: [number, number] = [76.2673, 9.9312];
+const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716];
 const ZOOM_INITIAL = 9;
 const ZOOM_FLY = 12;
 const PITCH = 45;
@@ -76,7 +76,13 @@ function addBuildings(map: Map, isDark: boolean) {
   }
 }
 
-export default function MapWidget() {
+export default function MapWidget({
+  center = DEFAULT_CENTER,
+  locationLabel = "Location",
+}: {
+  center?: [number, number];
+  locationLabel?: string;
+}) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   // The dark-ness currently applied to the map's style; lets us skip redundant
@@ -85,6 +91,14 @@ export default function MapWidget() {
   const { resolvedTheme } = useTheme();
   const reducedMotion = useReducedMotion();
   const [hovering, setHovering] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const centerLng = center[0];
+  const centerLat = center[1];
+  const mapCenter = useMemo<[number, number]>(() => {
+    const lng = Number.isFinite(centerLng) ? centerLng : DEFAULT_CENTER[0];
+    const lat = Number.isFinite(centerLat) ? centerLat : DEFAULT_CENTER[1];
+    return [lng, lat];
+  }, [centerLng, centerLat]);
 
   // Create the map exactly once. Theme changes are handled by setStyle below,
   // not by tearing the whole map down and refetching every tile.
@@ -98,7 +112,7 @@ export default function MapWidget() {
     const map = new maplibregl.Map({
       container: ref.current,
       style: styleUrl(isDark),
-      center: KOCHI,
+      center: mapCenter,
       zoom: ZOOM_INITIAL,
       pitch: PITCH,
       bearing: BEARING,
@@ -112,12 +126,13 @@ export default function MapWidget() {
     mapRef.current = map;
 
     map.on("load", () => {
+      setLoaded(true);
       map.setProjection({ type: "globe" });
       const shouldReduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       if (shouldReduce) {
-        map.jumpTo({ center: KOCHI, zoom: ZOOM_FLY, pitch: PITCH, bearing: BEARING });
+        map.jumpTo({ center: mapCenter, zoom: ZOOM_FLY, pitch: PITCH, bearing: BEARING });
       } else {
-        map.flyTo({ center: KOCHI, zoom: ZOOM_FLY, essential: true, speed: FLY_SPEED });
+        map.flyTo({ center: mapCenter, zoom: ZOOM_FLY, essential: true, speed: FLY_SPEED });
       }
       addBuildings(map, isDark);
     });
@@ -127,7 +142,7 @@ export default function MapWidget() {
       mapRef.current = null;
     };
     // create-once; theme is synced separately via setStyle
-  }, []);
+  }, [mapCenter]);
 
   // Swap basemap + rebuild buildings ONLY when light/dark actually flips — no
   // teardown, no re-fly, and no redundant reload when the theme settles to the
@@ -153,7 +168,14 @@ export default function MapWidget() {
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
     >
-      <div ref={ref} className={styles.map} />
+      <div
+        ref={ref}
+        className={styles.map}
+        role="region"
+        tabIndex={0}
+        aria-label={`Interactive map centered on ${locationLabel}`}
+      />
+      {!loaded && <div className={styles.loading}>Loading map</div>}
       <div className={styles.overlay}>
         <div className={styles.planeTrack}>
           <div className={styles.planeWrap}>

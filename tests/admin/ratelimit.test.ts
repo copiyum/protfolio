@@ -31,4 +31,13 @@ describe("rate limit", () => {
     await reset(env.DB, key);
     expect(await consume(env.DB, key, 1, 3600)).toBe(true);
   });
+
+  it("does not oversubscribe concurrent requests", async () => {
+    const key = "race-k";
+    const results = await Promise.all([
+      consume(env.DB, key, 1, 3600),
+      consume(env.DB, key, 1, 3600),
+    ]);
+    expect(results.filter(Boolean)).toHaveLength(1);
+  });
 });

@@ -5,6 +5,7 @@ export type Note = {
   rotation: number; // deg
   color: string; // hex color for frame/accent
   imageDataUrl?: string; // exported drawing
+  imageUrl?: string; // backend-hosted drawing
   name?: string;
   message?: string;
   createdAt: number; // epoch ms

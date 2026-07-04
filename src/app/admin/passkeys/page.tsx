@@ -1,21 +1,14 @@
 import { deletePasskey } from "@/lib/admin/actions/passkey";
-import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { adminAction } from "@/lib/admin/actions/result";
+import { listPasskeys } from "@/lib/admin/queries";
+import { AdminActionButton } from "@/components/admin/AdminActionButton";
 import Link from "next/link";
 
-interface PasskeyRow {
-  credential_id: string;
-  name: string;
-  created_at: string;
-  last_used_at: string | null;
-}
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function PasskeysPage() {
-  const ctx = await getCloudflareContext({ async: true });
-  const db = (ctx.env as unknown as { DB: D1Database }).DB;
-  const result = await db
-    .prepare("SELECT credential_id, name, created_at, last_used_at FROM passkeys ORDER BY created_at")
-    .all<PasskeyRow>();
-  const rows = result.results;
+  const rows = await listPasskeys();
   const count = rows.length;
 
   return (
@@ -31,6 +24,7 @@ export default async function PasskeysPage() {
       </p>
       <div className="overflow-x-auto rounded border border-[color:var(--foreground)]/10">
         <table className="w-full text-sm">
+          <caption className="sr-only">Registered passkeys</caption>
           <thead className="bg-[color:var(--foreground)]/5 text-left">
             <tr>
               <th className="p-2 font-medium">Name</th>
@@ -53,19 +47,21 @@ export default async function PasskeysPage() {
                   <td className="p-2 font-mono text-xs">{r.created_at}</td>
                   <td className="p-2 font-mono text-xs">{r.last_used_at ?? "—"}</td>
                   <td className="p-2">
-                    <form
+                    <AdminActionButton
                       action={async () => {
                         "use server";
-                        await deletePasskey(r.credential_id);
+                        return adminAction(async () => {
+                          await deletePasskey(r.credential_id);
+                          return { ok: true, message: "Passkey deleted." };
+                        });
                       }}
+                      disabled={count <= 2}
+                      confirmMessage={`Delete passkey "${r.name}"?`}
+                      pendingLabel="Deleting..."
+                      className="text-xs text-red-500 hover:underline disabled:opacity-30"
                     >
-                      <button
-                        disabled={count <= 2}
-                        className="text-xs text-red-500 hover:underline disabled:opacity-30"
-                      >
-                        Delete
-                      </button>
-                    </form>
+                      Delete
+                    </AdminActionButton>
                   </td>
                 </tr>
               ))

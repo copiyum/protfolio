@@ -4,16 +4,15 @@ import { useEffect, useState } from "react";
 import { extractAlbumAccent } from "@/lib/album-accent";
 
 export default function useAlbumAccent(src: string | null | undefined) {
-  const [accent, setAccent] = useState<string | null>(null);
+  const [result, setResult] = useState<{ src: string; accent: string | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    setAccent(null);
 
     if (!src) return;
 
     extractAlbumAccent(src).then((color) => {
-      if (!cancelled) setAccent(color);
+      if (!cancelled) setResult({ src, accent: color });
     });
 
     return () => {
@@ -21,5 +20,5 @@ export default function useAlbumAccent(src: string | null | undefined) {
     };
   }, [src]);
 
-  return accent;
+  return result && result.src === src ? result.accent : null;
 }

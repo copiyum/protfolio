@@ -9,18 +9,29 @@ import { SetupForm } from "./SetupForm";
 // for UX and so a stale tab doesn't offer a re-register form that the server
 // would then refuse at the action layer.
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 interface AdminEdgeEnv {
   DB: D1Database;
 }
 
+function isPlaywrightDevBypass() {
+  return process.env.NODE_ENV === "development" && process.env.PLAYWRIGHT_TEST === "1";
+}
+
 export default async function SetupPage() {
   const ctx = await getCloudflareContext({ async: true });
   const env = ctx.env as unknown as AdminEdgeEnv;
-  const row = await env.DB
-    .prepare("SELECT EXISTS(SELECT 1 FROM passkeys LIMIT 1) AS has_any")
-    .first<{ has_any: number }>();
-  if (row?.has_any) redirect("/admin/login");
+  let hasAnyPasskey = false;
+  try {
+    const row = await env.DB
+      .prepare("SELECT EXISTS(SELECT 1 FROM passkeys LIMIT 1) AS has_any")
+      .first<{ has_any: number }>();
+    hasAnyPasskey = !!row?.has_any;
+  } catch (error) {
+    if (!isPlaywrightDevBypass()) throw error;
+  }
+  if (hasAnyPasskey) redirect("/admin/login");
 
-  return <SetupForm sitekey={await getTurnstileSiteKey()} />;
+  return <SetupForm sitekey={await getTurnstileSiteKey()} turnstileBypass={process.env.PLAYWRIGHT_TEST === "1"} />;
 }

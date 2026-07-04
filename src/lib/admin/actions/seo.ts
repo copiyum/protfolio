@@ -1,36 +1,23 @@
 "use server";
 import { updateTag } from "next/cache";
 import { SeoInput } from "../schema/seo";
-import { prepareAudit } from "../audit";
+import { readSeoDefaults } from "../singletons";
 import { requireActionAdmin } from "./_security";
 
 // Singleton row (id='singleton'). Not using generic CRUD.
 export async function getSeo(): Promise<SeoInput> {
   const admin = await requireActionAdmin();
-  const db = admin.env.DB;
-  const row = await db.prepare("SELECT title_template, og_image, description FROM seo_defaults WHERE id = 'singleton'").first<{
-    title_template: string;
-    og_image: string | null;
-    description: string;
-  }>();
-  return {
-    title_template: row?.title_template ?? "",
-    og_image: row?.og_image ?? null,
-    description: row?.description ?? "",
-  };
+  return readSeoDefaults(admin.db);
 }
 
 export async function setSeo(input: unknown): Promise<{ ok: true }> {
   const admin = await requireActionAdmin({ write: true });
   const parsed = SeoInput.parse(input);
-  const db = admin.env.DB;
-  const audit = prepareAudit(db, {
+  const db = admin.db;
+  const audit = admin.prepareAudit({
     action: "set_seo",
     targetTable: "seo_defaults",
     targetId: "singleton",
-    actorCredentialId: admin.credentialId,
-    ip: admin.meta.ip,
-    ua: admin.meta.ua,
     diff: parsed as Record<string, unknown>,
   });
   await db.batch([

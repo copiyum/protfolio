@@ -37,7 +37,7 @@ function AnimatedStars({ count = 25 }: { count?: number }) {
 }
 
 type HoldToSubmitProps = {
-  onSubmit: () => void;
+  onSubmit: () => void | Promise<void>;
   className?: string;
   disabled?: boolean;
 };
@@ -107,6 +107,19 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
     setIsHolding(false);
   }, []);
 
+  const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    if (event.repeat) return;
+    startHold();
+  }, [startHold]);
+
+  const onKeyUp = useCallback((event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== " " && event.key !== "Enter") return;
+    event.preventDefault();
+    endHold();
+  }, [endHold]);
+
   // Cleanup any pending rAF / timers on unmount.
   useEffect(() => {
     return () => {
@@ -130,13 +143,22 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
         onPointerDown={startHold}
         onPointerUp={endHold}
         onPointerLeave={endHold}
+        onPointerCancel={endHold}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
         disabled={disabled}
+        aria-label="Hold to submit"
+        aria-describedby="hold-submit-status"
         style={{
           boxShadow: isHolding
             ? '0 8px 32px rgba(0,0,0,0.3), inset 0 0 0 1px rgba(255,255,255,0.1)'
             : '0 4px 16px rgba(0,0,0,0.2)'
         }}
       >
+        <span id="hold-submit-status" className="sr-only" aria-live="polite">
+          {isComplete ? "Submitted" : isHolding ? "Submitting" : "Hold for one second to submit"}
+        </span>
+
         {/* Progress background — transform written per-frame via barRef */}
         <div
           ref={barRef}
@@ -152,7 +174,7 @@ export default function HoldToSubmit({ onSubmit, className = "", disabled = fals
             </div>
             <div className="flex items-center gap-2">
               {isHolding ? (
-                <span ref={pctRef} className={`text-sm font-mono ${styles.popIn}`}>0%</span>
+                <span ref={pctRef} className={`text-sm font-mono ${styles.popIn}`} aria-hidden="true">0%</span>
               ) : (
                 <div className="flex">
                   <span>Hold to Submit</span>

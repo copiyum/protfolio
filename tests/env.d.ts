@@ -10,6 +10,8 @@ declare global {
   namespace Cloudflare {
     interface Env {
       DB: D1Database;
+      R2: R2Bucket;
+      TURNSTILE_SECRET: string;
       TEST_MIGRATIONS: D1Migration[];
     }
   }

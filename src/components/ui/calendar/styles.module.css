@@ -25,11 +25,7 @@
   border-color: color-mix(in srgb, var(--foreground), transparent 92%);
 }
 
-/* token classes to ensure CSS Modules exports */
-.showMessage { outline: none; outline-offset: -1px; }
 .hasHover { outline: none; outline-offset: -1px; }
-.completed { outline: none; outline-offset: -1px; }
-.future { outline: none; outline-offset: -1px; }
 .today { outline: none; outline-offset: -1px; }
 
 .innerPanel {
@@ -190,7 +186,7 @@
 .today .selected .dayNum,
 .today .selected .dow,
 .dayItem.today .selected .dayNum,
-.dayItem.today .selected .dow { color: #8F91E0 !important; }
+.dayItem.today .selected .dow { color: #8F91E0; }
 
 .messageBar {
   display: flex;
@@ -205,10 +201,8 @@
   transition: height var(--duration-ui) var(--easing-ui), opacity 200ms ease;
 }
 
-.innerPanel.showMessage .messageBar,
 .innerPanel.hasHover .messageBar { height: 1.25rem; opacity: 1; }
 
-.innerPanel.showMessage,
 .innerPanel.hasHover { padding-top: 1.6rem; }
 
 .messageRow {
@@ -237,7 +231,7 @@
 .dotEmpty { background: transparent; }
 
 .messageText { color: color-mix(in srgb, var(--foreground), transparent 0%); font-size: 0.9rem; }
-.todayText { color: #8F91E0 !important; }
+.dayItem .todayText { color: #8F91E0; }
 .selectedOverlay {
   position: absolute;
   inset: 0;

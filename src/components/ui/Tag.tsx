@@ -23,8 +23,8 @@ export default function Tag({
 
   const style =
     variant === "outline"
-      ? "border shadow-sm bg-[#F6F7FF] border-[#E9E9FB] text-[#4B4DB3] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-300/85 dark:shadow-none"
-      : "shadow-sm bg-[#F0F0FF] text-[#4B4DB3] dark:bg-slate-700 dark:text-slate-100";
+      ? "border border-[color:var(--accent)]/[0.20] bg-[color:var(--accent)]/[0.08] text-[color:var(--accent)] shadow-sm dark:border-[color:var(--foreground)]/[0.12] dark:bg-[color:var(--foreground)]/[0.08] dark:text-[color:var(--foreground)]/80 dark:shadow-none"
+      : "bg-[color:var(--accent)]/[0.12] text-[color:var(--accent)] shadow-sm dark:bg-[color:var(--foreground)]/[0.10] dark:text-[color:var(--foreground)]/92";
 
   return <span className={`${base} ${style} ${className}`.trim()}>{children ?? text}</span>;
 }

@@ -1,11 +1,16 @@
 name = "pf-admin-test"
 compatibility_date = "2026-07-01"
-compatibility_flags = ["nodejs_compat"]
+compatibility_flags = ["nodejs_compat_v2"]
 
 [[d1_databases]]
 binding = "DB"
 database_name = "pf-admin"
 database_id = "test-stub-id"
 
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "pf-admin-assets-test"
+
 [vars]
 NODE_ENV = "test"
+TURNSTILE_SECRET = "test-turnstile-secret"

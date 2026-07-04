@@ -1,9 +1,14 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-export default function SelectionTooltip() {
+export default function SelectionTooltip({ phrases = ["nice taste 👀"] }: { phrases?: string[] }) {
   const tipRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [message, setMessage] = useState(phrases[0] ?? "nice taste 👀");
+  const options = useMemo(() => {
+    const cleaned = phrases.map((phrase) => phrase.trim()).filter(Boolean);
+    return cleaned.length ? cleaned : ["nice taste 👀"];
+  }, [phrases]);
 
   useEffect(() => {
     const hide = () => {
@@ -19,6 +24,7 @@ export default function SelectionTooltip() {
       if (!rect.width || !tipRef.current) return;
 
       const tip = tipRef.current;
+      setMessage(options[Math.floor(Math.random() * options.length)]);
       tip.style.left = `${rect.left + rect.width / 2}px`;
       tip.style.top = `${rect.top - 36 + window.scrollY}px`;
       tip.style.opacity = "1";
@@ -32,7 +38,7 @@ export default function SelectionTooltip() {
       document.removeEventListener("selectionchange", handleSelectionChange);
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, []);
+  }, [options]);
 
   return (
     <div
@@ -40,7 +46,7 @@ export default function SelectionTooltip() {
       className="pointer-events-none absolute z-[9998] -translate-x-1/2 rounded-md border border-[color:var(--foreground)]/10 bg-[var(--page-bg)] px-2.5 py-1 text-[11px] font-medium text-[color:var(--foreground)]/70 opacity-0 shadow-sm transition-opacity duration-200"
       aria-hidden
     >
-      nice taste 👀
+      {message}
     </div>
   );
 }

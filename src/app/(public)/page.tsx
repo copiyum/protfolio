@@ -13,8 +13,13 @@ import Calendar from "@/components/ui/calendar";
 import { TypingSimulator } from "@/components/typing";
 import Reveal from "@/components/ui/reveal";
 import SectionPanel from "@/components/ui/section-panel";
+import { getHomePageData } from "@/lib/admin/read";
 
-export default function Home() {
+export const revalidate = 300;
+
+export default async function Home() {
+	const { profile, bentoCells, experiences, projects, socialLinks, techStack } = await getHomePageData();
+
 	return (
 		<div className="relative min-h-[calc(100vh-3.5rem)]">
 			<AnimatedStars />
@@ -22,14 +27,14 @@ export default function Home() {
 			<main className="relative z-10 mx-auto max-w-[550px] px-2 pb-20">
 				<Reveal className="mt-10">
 					<section className="overflow-hidden rounded-[28px] border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.018] p-2">
-						<MapSection />
+						<MapSection profile={profile} />
 						<div className="px-1 pb-2 pt-4">
-							<IntroSection />
+							<IntroSection profile={profile} />
 							<div className="mt-6">
-								<SocialLinks />
+								<SocialLinks links={socialLinks} />
 							</div>
 							<div className="mt-6">
-								<BentoBlock />
+								<BentoBlock cells={bentoCells} profile={profile} />
 							</div>
 						</div>
 					</section>
@@ -38,13 +43,13 @@ export default function Home() {
 				<div className="mt-[72px] -mx-2 rounded-3xl px-3 py-6 ring-1 ring-[color:var(--foreground)]/8">
 					<Reveal>
 						<SectionPanel label="Experience">
-							<Experience />
+							<Experience experiences={experiences} />
 						</SectionPanel>
 					</Reveal>
 
 					<Reveal className="mt-4">
 						<SectionPanel label="Featured Projects">
-							<FeaturedProjects />
+							<FeaturedProjects projects={projects} />
 						</SectionPanel>
 					</Reveal>
 				</div>
@@ -72,7 +77,7 @@ export default function Home() {
 						<h2 className="text-xl font-semibold tracking-normal text-[color:var(--foreground)]">
 							Stack
 						</h2>
-						<TechStack />
+						<TechStack techStack={techStack} />
 					</section>
 				</Reveal>
 

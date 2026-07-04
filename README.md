@@ -23,7 +23,7 @@ Behind Cloudflare Access (email OTP) + Passkey session. Hand-rolled admin UI on 
    ```bash
    wrangler d1 create pf-admin      # paste database_id into wrangler.toml
    wrangler r2 bucket create pf-admin-assets
-   wrangler d1 execute pf-admin --remote --file=migrations/0001_initial.sql
+   wrangler d1 migrations apply pf-admin --remote
    ```
 4. Deploy. Visit `/admin/login`. CF Access lets you through → app detects no passkeys → `/admin/setup` → register first passkey.
 5. App forces registration of a 2nd passkey (phone / YubiKey) before continuing.
@@ -58,13 +58,19 @@ This invalidates all active sessions. Users must re-authenticate with passkey.
 
 ### Content migration (TS → D1)
 
-One-shot, idempotent. Run once after applying schema:
+Idempotent. Run after applying schema, and rerun after content-wiring migrations:
 
 ```bash
-export CF_ACCOUNT_ID=...
-export CF_D1_ID=...
-export CF_API_TOKEN=...
+npx wrangler login
 npm run migrate
+```
+
+Optional preview:
+
+```bash
+npm run migrate -- --dry-run
+# Include generated SQL in stdout:
+npm run migrate -- --dry-run --print-sql
 ```
 
 ### Dev

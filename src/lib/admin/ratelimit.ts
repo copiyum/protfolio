@@ -5,15 +5,25 @@ export async function consume(
   windowSec: number
 ): Promise<boolean> {
   const now = Math.floor(Date.now() / 1000);
-  const row = await d1.prepare("SELECT window_start, count FROM rate_limits WHERE scope_key = ?").bind(key).first<{ window_start: string; count: number }>();
-  const winStart = row ? parseInt(row.window_start, 10) : 0;
-  if (!row || now - winStart >= windowSec) {
-    await d1.prepare("INSERT OR REPLACE INTO rate_limits (scope_key, window_start, count) VALUES (?, ?, 1)").bind(key, now).run();
-    return true;
-  }
-  if (row.count >= limit) return false;
-  await d1.prepare("UPDATE rate_limits SET count = count + 1 WHERE scope_key = ?").bind(key).run();
-  return true;
+  const result = await d1
+    .prepare(
+      `INSERT INTO rate_limits (scope_key, window_start, count)
+       VALUES (?, ?, 1)
+       ON CONFLICT(scope_key) DO UPDATE SET
+         window_start = CASE
+           WHEN ? - CAST(window_start AS INTEGER) >= ? THEN excluded.window_start
+           ELSE window_start
+         END,
+         count = CASE
+           WHEN ? - CAST(window_start AS INTEGER) >= ? THEN 1
+           ELSE count + 1
+         END
+       WHERE ? - CAST(window_start AS INTEGER) >= ?
+          OR count < ?`,
+    )
+    .bind(key, now, now, windowSec, now, windowSec, now, windowSec, limit)
+    .run();
+  return (result.meta.changes ?? 0) > 0;
 }
 
 export async function isBlocked(

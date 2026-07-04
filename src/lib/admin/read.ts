@@ -1,105 +1,303 @@
-import { cacheTag } from "next/cache";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { fallback } from "@/data/fallback";
+import { unstable_cache } from "next/cache";
+import type { Post } from "@/data/posts";
+import type { Project } from "@/data/projects";
+import type { Experience } from "@/data/experience";
+import type { SocialLink } from "@/data/social-links";
+import type { TechItem } from "@/data/tech-stack";
+import {
+  bentoPlugin,
+  experiencesPlugin,
+  navPlugin,
+  postsPlugin,
+  projectsPlugin,
+  socialLinksPlugin,
+  techStackPlugin,
+  type BentoCell,
+  type NavItem,
+} from "@/lib/admin/entities";
+import { readProfileSettings } from "@/lib/admin/singletons";
+import { DEFAULT_PROFILE_SETTINGS, type ProfileSettings } from "@/lib/profile-settings";
+import {
+  VISITOR_NOTES_TAG,
+  listPublicVisitorNotes,
+  type VisitorNote,
+} from "@/lib/visitor-notes";
 
-type PostRow = {
-  id: string; title: string; slug: string; date: string;
-  summary: string; tags: string; cover: string | null; content: string;
-  published: number;
-};
+export type { BentoCell, NavItem } from "@/lib/admin/entities";
 
-export async function getPosts() {
-  "use cache";
-  cacheTag("posts");
+const PUBLIC_READ_REVALIDATE_SECONDS = 300;
+const PUBLIC_BUILD_FALLBACK_ERROR = "PublicBuildFallback";
+
+function isProductionBuildPhase() {
+  return process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build:next";
+}
+
+function publicBuildFallbackError() {
+  const error = new Error("Public D1 reads are skipped during production build prerendering");
+  error.name = PUBLIC_BUILD_FALLBACK_ERROR;
+  return error;
+}
+
+function warnPublicRead(label: string, error: unknown) {
+  if (error instanceof Error && error.name === PUBLIC_BUILD_FALLBACK_ERROR) return;
+  console.warn(`[${label}] D1 read failed, falling back`, error);
+}
+
+async function getPublicDb(): Promise<D1Database> {
+  if (isProductionBuildPhase()) throw publicBuildFallbackError();
+  const ctx = await getCloudflareContext({ async: true });
+  return (ctx.env as unknown as { DB: D1Database }).DB;
+}
+
+const getProfileSettingsCached = unstable_cache(
+  async (): Promise<ProfileSettings> => {
+    const db = await getPublicDb();
+    return readProfileSettings(db);
+  },
+  ["public-profile-settings"],
+  { tags: ["profile"], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getProfileSettings(): Promise<ProfileSettings> {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const db = (ctx.env as unknown as { DB: D1Database }).DB;
-    const rows = await db.prepare("SELECT * FROM posts WHERE published = 1 ORDER BY date DESC").all<PostRow>();
-    return rows.results.map((r) => ({
-      ...r,
-      tags: JSON.parse(r.tags) as string[],
-      content: JSON.parse(r.content) as string[],
-    }));
+    return await getProfileSettingsCached();
   } catch (e) {
-    console.warn("[getPosts] D1 read failed, falling back", e);
-    return fallback.posts;
+    warnPublicRead("getProfileSettings", e);
+    return DEFAULT_PROFILE_SETTINGS;
   }
 }
 
-type ProjectRow = {
-  id: string; title: string; period_start: string; period_end: string | null;
-  link: string | null; logo: string | null; description: string | null;
-  skills: string; featured: number; is_expanded: number;
-  sort_order: number; published: number;
-};
+const getPostsCached = unstable_cache(
+  async (): Promise<Post[]> => {
+    const db = await getPublicDb();
+    return postsPlugin.read(db);
+  },
+  ["public-posts"],
+  { tags: [postsPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
 
-export async function getProjects() {
-  "use cache";
-  cacheTag("projects");
+export async function getPosts(): Promise<Post[]> {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const db = (ctx.env as unknown as { DB: D1Database }).DB;
-    const rows = await db.prepare("SELECT * FROM projects WHERE published = 1 ORDER BY sort_order").all<ProjectRow>();
-    return rows.results.map((r) => ({
-      id: r.id,
-      title: r.title,
-      period: { start: r.period_start, end: r.period_end ?? undefined },
-      link: r.link ?? undefined,
-      logo: r.logo ?? undefined,
-      description: r.description ?? undefined,
-      skills: JSON.parse(r.skills) as string[],
-      featured: !!r.featured,
-      isExpanded: !!r.is_expanded,
-    }));
+    return await getPostsCached();
   } catch (e) {
-    console.warn("[getProjects] D1 read failed, falling back", e);
-    return fallback.projects;
+    warnPublicRead("getPosts", e);
+    return postsPlugin.fallback();
   }
 }
 
-type SocialRow = { id: string; label: string; href: string; sort_order: number; published: number };
+export async function getPostBySlug(slug: string): Promise<Post | null> {
+  const posts = await getPosts();
+  return posts.find((post) => post.slug === slug) ?? null;
+}
 
-export async function getSocialLinks() {
-  "use cache";
-  cacheTag("social-links");
+const getProjectsCached = unstable_cache(
+  async (): Promise<Project[]> => {
+    const db = await getPublicDb();
+    return projectsPlugin.read(db);
+  },
+  ["public-projects"],
+  { tags: [projectsPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getProjects(): Promise<Project[]> {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const db = (ctx.env as unknown as { DB: D1Database }).DB;
-    const rows = await db.prepare("SELECT * FROM social_links WHERE published = 1 ORDER BY sort_order").all<SocialRow>();
-    return rows.results.map((r) => ({ label: r.label, href: r.href }));
+    return await getProjectsCached();
   } catch (e) {
-    console.warn("[getSocialLinks] D1 read failed, falling back", e);
-    return fallback.socialLinks;
+    warnPublicRead("getProjects", e);
+    return projectsPlugin.fallback();
   }
 }
 
-type BentoRow = {
-  id: string; kind: string; label: string; value: string | null; sub: string | null;
-  payload: string; col_span: number; row_span: number;
-  sort_order: number; visible: number; visibility_window: string | null;
+const getExperiencesCached = unstable_cache(
+  async (): Promise<Experience[]> => {
+    const db = await getPublicDb();
+    return experiencesPlugin.read(db);
+  },
+  ["public-experiences"],
+  { tags: [experiencesPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getExperiences(): Promise<Experience[]> {
+  try {
+    return await getExperiencesCached();
+  } catch (e) {
+    warnPublicRead("getExperiences", e);
+    return experiencesPlugin.fallback();
+  }
+}
+
+const getSocialLinksCached = unstable_cache(
+  async (): Promise<SocialLink[]> => {
+    const db = await getPublicDb();
+    return socialLinksPlugin.read(db);
+  },
+  ["public-social-links"],
+  { tags: [socialLinksPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getSocialLinks(): Promise<SocialLink[]> {
+  try {
+    return await getSocialLinksCached();
+  } catch (e) {
+    warnPublicRead("getSocialLinks", e);
+    return socialLinksPlugin.fallback();
+  }
+}
+
+const getTechStackCached = unstable_cache(
+  async (): Promise<TechItem[]> => {
+    const db = await getPublicDb();
+    return techStackPlugin.read(db);
+  },
+  ["public-tech-stack"],
+  { tags: [techStackPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getTechStack(): Promise<TechItem[]> {
+  try {
+    return await getTechStackCached();
+  } catch (e) {
+    warnPublicRead("getTechStack", e);
+    return techStackPlugin.fallback();
+  }
+}
+
+const getNavItemsCached = unstable_cache(
+  async (): Promise<NavItem[]> => {
+    const db = await getPublicDb();
+    return navPlugin.read(db);
+  },
+  ["public-nav-items"],
+  { tags: [navPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getNavItems(): Promise<NavItem[]> {
+  try {
+    return await getNavItemsCached();
+  } catch (e) {
+    warnPublicRead("getNavItems", e);
+    return navPlugin.fallback();
+  }
+}
+
+const getBentoCellsCached = unstable_cache(
+  async (): Promise<BentoCell[]> => {
+    const db = await getPublicDb();
+    return bentoPlugin.read(db);
+  },
+  ["public-bento-cells"],
+  { tags: [bentoPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getBentoCells(): Promise<BentoCell[]> {
+  try {
+    return await getBentoCellsCached();
+  } catch (e) {
+    warnPublicRead("getBentoCells", e);
+    return bentoPlugin.fallback();
+  }
+}
+
+const getVisitorNotesCached = unstable_cache(
+  async (): Promise<VisitorNote[]> => {
+    const db = await getPublicDb();
+    return listPublicVisitorNotes(db);
+  },
+  ["public-visitor-notes"],
+  { tags: [VISITOR_NOTES_TAG], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getVisitorNotes(): Promise<VisitorNote[]> {
+  try {
+    return await getVisitorNotesCached();
+  } catch (e) {
+    warnPublicRead("getVisitorNotes", e);
+    return [];
+  }
+}
+
+async function readPublicPart<T>(
+  label: string,
+  task: () => Promise<T>,
+  fallbackValue: () => T | Promise<T>,
+): Promise<T> {
+  try {
+    return await task();
+  } catch (e) {
+    warnPublicRead(`public-read:${label}`, e);
+    return fallbackValue();
+  }
+}
+
+export type HomePageData = {
+  profile: ProfileSettings;
+  bentoCells: BentoCell[];
+  experiences: Experience[];
+  projects: Project[];
+  socialLinks: SocialLink[];
+  techStack: TechItem[];
 };
 
-export async function getBentoCells() {
-  "use cache";
-  cacheTag("bento");
+const getHomePageDataCached = unstable_cache(
+  async (): Promise<HomePageData> => {
+    const db = await getPublicDb();
+    const [profile, bentoCells, experiences, projects, socialLinks, techStack] = await Promise.all([
+      readPublicPart("profile", () => readProfileSettings(db), () => DEFAULT_PROFILE_SETTINGS),
+      readPublicPart("bento", () => bentoPlugin.read(db), () => bentoPlugin.fallback()),
+      readPublicPart("experiences", () => experiencesPlugin.read(db), () => experiencesPlugin.fallback()),
+      readPublicPart("projects", () => projectsPlugin.read(db), () => projectsPlugin.fallback()),
+      readPublicPart("social links", () => socialLinksPlugin.read(db), () => socialLinksPlugin.fallback()),
+      readPublicPart("tech stack", () => techStackPlugin.read(db), () => techStackPlugin.fallback()),
+    ]);
+    return { profile, bentoCells, experiences, projects, socialLinks, techStack };
+  },
+  ["public-home-page-data"],
+  {
+    tags: ["profile", bentoPlugin.tag, experiencesPlugin.tag, projectsPlugin.tag, socialLinksPlugin.tag, techStackPlugin.tag],
+    revalidate: PUBLIC_READ_REVALIDATE_SECONDS,
+  },
+);
+
+export async function getHomePageData(): Promise<HomePageData> {
   try {
-    const ctx = await getCloudflareContext({ async: true });
-    const db = (ctx.env as unknown as { DB: D1Database }).DB;
-    const rows = await db.prepare("SELECT * FROM bento_cells WHERE visible = 1 ORDER BY sort_order").all<BentoRow>();
-    return rows.results.map((r) => ({
-      id: r.id,
-      kind: r.kind as "custom" | "nowPlaying" | "github" | "map" | "typing" | "visitors" | "showcase",
-      label: r.label,
-      value: r.value ?? "",
-      sub: r.sub ?? "",
-      payload: JSON.parse(r.payload) as Record<string, unknown>,
-      colSpan: r.col_span,
-      rowSpan: r.row_span,
-    }));
+    return await getHomePageDataCached();
   } catch (e) {
-    console.warn("[getBentoCells] D1 read failed", e);
-    // Fall back to static bento cell (single cell from bento.ts) so the layout renders.
-    const { bentoCustomCell } = await import("@/data/bento");
-    return [{ ...bentoCustomCell, id: "custom-default", kind: "custom" as const, payload: {}, colSpan: 1, rowSpan: 1 }];
+    warnPublicRead("getHomePageData", e);
+    return {
+      profile: DEFAULT_PROFILE_SETTINGS,
+      bentoCells: await bentoPlugin.fallback(),
+      experiences: experiencesPlugin.fallback(),
+      projects: projectsPlugin.fallback(),
+      socialLinks: socialLinksPlugin.fallback(),
+      techStack: techStackPlugin.fallback(),
+    };
+  }
+}
+
+export type PublicLayoutData = {
+  navItems: NavItem[];
+  profile: ProfileSettings;
+};
+
+const getPublicLayoutDataCached = unstable_cache(
+  async (): Promise<PublicLayoutData> => {
+    const db = await getPublicDb();
+    const [navItems, profile] = await Promise.all([
+      readPublicPart("nav", () => navPlugin.read(db), () => navPlugin.fallback()),
+      readPublicPart("profile", () => readProfileSettings(db), () => DEFAULT_PROFILE_SETTINGS),
+    ]);
+    return { navItems, profile };
+  },
+  ["public-layout-data"],
+  { tags: [navPlugin.tag, "profile"], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getPublicLayoutData(): Promise<PublicLayoutData> {
+  try {
+    return await getPublicLayoutDataCached();
+  } catch (e) {
+    warnPublicRead("getPublicLayoutData", e);
+    return { navItems: navPlugin.fallback(), profile: DEFAULT_PROFILE_SETTINGS };
   }
 }

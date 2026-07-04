@@ -11,6 +11,7 @@ export type Stroke = {
 
 export type DrawingCanvasHandle = {
   exportAsDataUrl: () => string;
+  hasDrawing: () => boolean;
   clear: () => void;
   undo: () => void;
   redo: () => void;
@@ -34,6 +35,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(function DrawingCan
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [redoStack, setRedoStack] = useState<Stroke[]>([]);
+  const [isDrawing, setIsDrawing] = useState(false);
 
   // Active-stroke scratch state lives in refs — drawing is done incrementally on
   // pointermove without React re-renders; committed history lives in `strokes`.
@@ -141,6 +143,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(function DrawingCan
   const start = (e: React.MouseEvent | React.TouchEvent) => {
     const p = getPos(e);
     drawingRef.current = true;
+    setIsDrawing(true);
     lastPointRef.current = p;
     // Snapshot the current props as this stroke's immutable style.
     currentStrokeRef.current = { color, width, erase, points: [p] };
@@ -161,6 +164,7 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(function DrawingCan
   const end = () => {
     if (!drawingRef.current) return;
     drawingRef.current = false;
+    setIsDrawing(false);
     const s = currentStrokeRef.current;
     currentStrokeRef.current = null;
     lastPointRef.current = null;
@@ -197,10 +201,12 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(function DrawingCan
     return c ? c.toDataURL("image/png") : "";
   };
 
-  useImperativeHandle(ref, () => ({ exportAsDataUrl, clear, undo, redo }));
+  const hasDrawing = () => strokes.length > 0 || !!currentStrokeRef.current;
+
+  useImperativeHandle(ref, () => ({ exportAsDataUrl, hasDrawing, clear, undo, redo }));
 
   return (
-    <div className={className}>
+    <div className={`relative ${className ?? ""}`.trim()}>
       <canvas
         ref={canvasRef}
         onMouseDown={start}
@@ -212,6 +218,11 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(function DrawingCan
         onTouchEnd={end}
         style={{ width: "100%", height: 300, touchAction: "none", display: "block", borderRadius: 12, background: "transparent" }}
       />
+      {strokes.length === 0 && !isDrawing && (
+        <p className="pointer-events-none absolute inset-0 grid place-items-center text-sm text-[color:var(--foreground)]/35">
+          Draw something here
+        </p>
+      )}
     </div>
   );
 });

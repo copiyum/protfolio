@@ -11,6 +11,7 @@ const workersProject = defineProject({
     alias: {
       "@/lib/admin": resolve("./src/lib/admin"),
       "@": resolve("./src"),
+      "next/cache": resolve("./tests/admin/next-cache-stub.ts"),
     },
   },
   plugins: [
@@ -18,7 +19,7 @@ const workersProject = defineProject({
       wrangler: { configPath: "./wrangler.test.toml" },
       miniflare: {
         compatibilityDate: "2026-07-01",
-        compatibilityFlags: ["nodejs_compat", "nodejs_compat_v2"],
+        compatibilityFlags: ["nodejs_compat_v2"],
         bindings: { TEST_MIGRATIONS: migrations },
       },
     }),

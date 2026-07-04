@@ -1,30 +1,31 @@
+/* eslint-disable @next/next/no-img-element -- Profile photos are admin-configured arbitrary URLs; next/image remote allowlists would reject valid entries. */
 "use client";
 import { useCallback, useRef, useState, useEffect } from "react";
 import { PaperAirplaneIcon } from "@heroicons/react/24/solid";
 import { useTheme } from "next-themes";
 import styles from "./profile-block.module.css";
+import type { ProfileSettings } from "@/lib/profile-settings";
+import useHasMounted from "@/hooks/use-has-mounted";
 
 const ANIMATION_DURATION = 1150; // ms — ring fill/unfill phase duration
 
 interface ProfileBlockProps {
   /** Called when the avatar-hover "highlight" phase flips, so a sibling (BioText) can react. */
   onActiveChange?: (active: boolean) => void;
+  profile: ProfileSettings;
 }
 
-export default function ProfileBlock({ onActiveChange }: ProfileBlockProps) {
+export default function ProfileBlock({ onActiveChange, profile }: ProfileBlockProps) {
   // Start UNCIRCLED (grey track only) and with bio UNHIGHLIGHTED by default
   const [phase, setPhase] = useState<"idle" | "loading" | "loaded" | "unloading">("idle");
   const [innerHovered, setInnerHovered] = useState(false);
   const timer = useRef<NodeJS.Timeout | null>(null);
   const { resolvedTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useHasMounted();
 
   // Avoid hydration mismatch by only setting theme on the client after mount
   const currentTheme = mounted ? resolvedTheme : undefined;
+  const singlePhoto = profile.photoLight ?? profile.photoDark;
 
   const startLoad = useCallback(() => {
     // If currently full or filling, start unloading towards empty; else start loading towards full
@@ -85,7 +86,16 @@ export default function ProfileBlock({ onActiveChange }: ProfileBlockProps) {
            onMouseLeave={handleMouseLeave}
            onTouchStart={startLoad}
       >
-        <div className={styles.avatarFallback} aria-label="Sarang">S</div>
+        {profile.photoLight && profile.photoDark ? (
+          <>
+            <img src={profile.photoLight} alt="Sarang" className={`${styles.avatar} ${styles.avatarLight}`} />
+            <img src={profile.photoDark} alt="Sarang" className={`${styles.avatar} ${styles.avatarDark}`} />
+          </>
+        ) : singlePhoto ? (
+          <img src={singlePhoto} alt="Sarang" className={styles.avatar} />
+        ) : (
+          <div className={styles.avatarFallback} aria-label="Sarang">S</div>
+        )}
   <svg className={styles.ringSvg} viewBox="0 0 80 80" aria-hidden suppressHydrationWarning>
           <circle className={styles.ringTrack} cx="40" cy="40" r="36" {...(currentTheme && { 'data-theme': currentTheme })} />
           <circle

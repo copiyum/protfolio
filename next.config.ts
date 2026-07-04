@@ -1,3 +1,5 @@
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -6,10 +8,6 @@ const nextConfig: NextConfig = {
   // dynamic routes (requires generateStaticParams ≥ 1 result).
   // FOUC fix: inline critical CSS in src/app/layout.tsx <head> instead.
   // optimizeCss is broken under OpenNext (expects .next/standalone output).
-  typescript: {
-    // Pre-existing fetch-JSON type issues across the app; revisit later.
-    ignoreBuildErrors: true,
-  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "*.mzstatic.com" },
@@ -18,4 +16,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default function config(phase: string): NextConfig {
+  if (phase === PHASE_DEVELOPMENT_SERVER) {
+    initOpenNextCloudflareForDev();
+  }
+  return nextConfig;
+}

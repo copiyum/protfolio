@@ -12,10 +12,16 @@ interface Env {
 export async function GET(req: Request) {
   const ctx = await getCloudflareContext({ async: true });
   const env = ctx.env as unknown as Env;
-  if (req.headers.get("cf-cron-secret") !== env.CRON_SECRET && new URL(req.url).searchParams.get("secret") !== env.CRON_SECRET) {
+  if (req.headers.get("cf-cron-secret") !== env.CRON_SECRET) {
     return new Response("Unauthorized", { status: 401 });
   }
-  const rows = await env.DB.prepare("SELECT * FROM audit_log WHERE ts >= datetime('now', '-1 day')").all<Record<string, unknown>>();
+  const rows = await env.DB
+    .prepare(
+      `SELECT id, actor_credential_id, action, target_table, target_id, ip, ua, ts, diff
+       FROM audit_log
+       WHERE ts >= datetime('now', '-1 day')`,
+    )
+    .all<Record<string, unknown>>();
   const jsonl = (rows.results ?? []).map((r) => JSON.stringify(r)).join("\n");
   const key = `audit/${new Date().toISOString().slice(0, 10)}.jsonl.gz`;
   const gz = new Uint8Array(

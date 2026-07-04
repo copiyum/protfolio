@@ -4,13 +4,14 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import styles from "./TypingSimulator.module.css";
 import caretStyles from "./caret.module.css";
 import { generatePassage } from "@/lib/typing/passage";
-import { computeAccuracy, computeWpm } from "@/lib/typing/metrics";
+import { computeAccuracy, computeWpm, computeWpmAt } from "@/lib/typing/metrics";
 import { hideLeadingSpacesAndGetActive } from "@/lib/typing/layout";
 import { useFloatingCaret } from "./useFloatingCaret";
 import { HUD } from "./HUD";
 import { StartOverlay } from "./StartOverlay";
 import { ResultOverlay } from "./ResultOverlay";
 import { Mascot } from "./Mascot";
+import useReducedMotion from "@/hooks/use-reduced-motion";
 
 const MASCOT_FRAMES = [
 	"/assets/bongo-cat/none.png",
@@ -19,6 +20,12 @@ const MASCOT_FRAMES = [
 ];
 
 const TRAIL_LEN = 6; // number of trailing glow characters
+
+function eventEpochMs(event: React.KeyboardEvent<HTMLDivElement>) {
+	const ts = event.timeStamp;
+	if (ts > 1_000_000_000_000) return ts;
+	return performance.timeOrigin + ts;
+}
 
 export default function TypingSimulator() {
 	const containerRef = useRef<HTMLDivElement | null>(null);
@@ -36,16 +43,7 @@ export default function TypingSimulator() {
 		const [mascotFrame, setMascotFrame] = useState(0);
 		const frameTimeout = useRef<number | null>(null);
 		const startTimeout = useRef<number | null>(null);
-		const [reducedMotion, setReducedMotion] = useState(false);
-
-	// reduced motion preference
-	useEffect(() => {
-		const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-		setReducedMotion(mq.matches);
-		const handler = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-		mq.addEventListener("change", handler);
-		return () => mq.removeEventListener("change", handler);
-	}, []);
+		const reducedMotion = useReducedMotion();
 
 	// derived stats
 	const correctCount = useMemo(() => {
@@ -58,11 +56,6 @@ export default function TypingSimulator() {
 	const liveAcc = computeAccuracy(correctCount, typed.length);
 	const wpm = finalStats ? finalStats.wpm : liveWpm;
 	const accuracy = finalStats ? finalStats.acc : liveAcc;
-
-	// initial focus — preventScroll so the page doesn't jump down to the sim on load
-	useEffect(() => {
-		containerRef.current?.focus({ preventScroll: true });
-	}, []);
 
 		const handleStart = () => {
 			if (ready || startLeaving) return;
@@ -111,19 +104,24 @@ export default function TypingSimulator() {
 		if (e.ctrlKey || e.altKey || e.metaKey) return;
 		if (e.key.length === 1) {
 			e.preventDefault();
-			if (!startedAt) setStartedAt(Date.now());
-			setTyped((prev) => {
-				const nextLen = prev.length + 1;
-				const next = prev + e.key;
-				if (nextLen >= target.length) {
-					setFinished(true);
-					const now = Date.now();
-					const w = computeWpm(correctCount, startedAt ?? now);
-					const a = computeAccuracy(nextLen ? correctCount : 0, nextLen);
-					setFinalStats({ wpm: w, acc: a });
-				}
-				return next;
-			});
+			const eventTime = eventEpochMs(e);
+			const startTime = startedAt ?? eventTime;
+			if (!startedAt) setStartedAt(startTime);
+				setTyped((prev) => {
+					const nextLen = prev.length + 1;
+					const next = prev + e.key;
+					if (nextLen >= target.length) {
+						setFinished(true);
+						let nextCorrect = 0;
+						for (let i = 0; i < next.length; i++) {
+							if (next[i] === target[i]) nextCorrect++;
+						}
+						const w = computeWpmAt(nextCorrect, startTime, eventTime);
+						const a = computeAccuracy(nextLen ? nextCorrect : 0, nextLen);
+						setFinalStats({ wpm: w, acc: a });
+					}
+					return next;
+				});
 			pulseMascot();
 		}
 	};
@@ -242,6 +240,7 @@ export default function TypingSimulator() {
 				tabIndex={0}
 				role="textbox"
 				aria-label="Typing simulator. Press Tab to restart."
+				onPointerDown={() => containerRef.current?.focus({ preventScroll: true })}
 				onKeyDown={handleKeyDown}
 			>
 				<Mascot frameSrc={MASCOT_FRAMES[mascotFrame]} />

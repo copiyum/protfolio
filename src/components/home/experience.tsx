@@ -1,12 +1,17 @@
 "use client";
-import { useState } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import { CodeBracketIcon } from "@heroicons/react/24/outline";
-import { experiences, type Experience as ExperienceType, type ExperiencePosition } from "@/data/experience";
-import { formatDuration } from "@/lib/period";
+import type { Experience as ExperienceType, ExperiencePosition } from "@/data/experience";
 import ExpandIcon from "@/components/ui/expand-icon";
+import { DateRange } from "./DateRange";
+import { SkillTags } from "./SkillTags";
 
-export default function Experience() {
+export default function Experience({ experiences }: { experiences: ExperienceType[] }) {
+  if (experiences.length === 0) {
+    return <p className="px-4 py-5 text-sm text-[color:var(--foreground)]/50">No experience entries yet.</p>;
+  }
+
   return (
     <div className="px-4 text-[color:var(--foreground)]">
       {experiences.map((exp) => (
@@ -16,7 +21,7 @@ export default function Experience() {
   );
 }
 
-function ExperienceItem({ experience }: { experience: ExperienceType }) {
+const ExperienceItem = memo(function ExperienceItem({ experience }: { experience: ExperienceType }) {
   return (
     <div className="space-y-4 py-4">
       <div className="flex items-center gap-3">
@@ -54,13 +59,11 @@ function ExperienceItem({ experience }: { experience: ExperienceType }) {
       </div>
     </div>
   );
-}
+});
 
-function PositionItem({ position }: { position: ExperiencePosition }) {
+const PositionItem = memo(function PositionItem({ position }: { position: ExperiencePosition }) {
   const [open, setOpen] = useState(!!position.isExpanded);
   const { start, end } = position.employmentPeriod;
-  const isOngoing = !end;
-  const duration = formatDuration(start, end);
   const hasBody = !!position.description;
 
   return (
@@ -107,17 +110,7 @@ function PositionItem({ position }: { position: ExperiencePosition }) {
               <span className="h-3.5 w-px self-center bg-[color:var(--foreground)]/15" />
             </>
           )}
-          <dd className="flex items-center gap-0.5 tabular-nums">
-            <span>{start}</span>
-            <span className="font-mono">—</span>
-            {isOngoing ? <span className="font-mono text-[1.1em] leading-none">∞</span> : <span>{end}</span>}
-          </dd>
-          {duration && (
-            <>
-              <span className="h-3.5 w-px self-center bg-[color:var(--foreground)]/15" />
-              <dd className="tabular-nums">{duration}</dd>
-            </>
-          )}
+          <DateRange start={start} end={end} showDuration />
         </dl>
       </button>
 
@@ -129,17 +122,7 @@ function PositionItem({ position }: { position: ExperiencePosition }) {
         </div>
       )}
 
-      {position.skills && position.skills.length > 0 && (
-        <ul className="flex flex-wrap gap-1.5 pt-3 pl-9">
-          {position.skills.map((s) => (
-            <li key={s}>
-              <span className="inline-flex items-center rounded-md border border-[color:var(--foreground)]/10 bg-[color:var(--foreground)]/[0.04] px-1.5 py-0.5 font-mono text-xs text-[color:var(--foreground)]/60">
-                {s}
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
+      <SkillTags skills={position.skills} className="pt-3 pl-9" />
     </div>
   );
-}
+});

@@ -1,9 +1,39 @@
-import { getSeo, setSeo } from "@/lib/admin/actions/seo";
-import { listFlags, setFlag, deleteFlag } from "@/lib/admin/actions/feature-flags";
+import { setSeo } from "@/lib/admin/actions/seo";
+import { setFlag, deleteFlag } from "@/lib/admin/actions/feature-flags";
+import { adminAction, type AdminActionResult } from "@/lib/admin/actions/result";
+import { getSeoDefaults, listFeatureFlags } from "@/lib/admin/queries";
+import { AdminActionButton } from "@/components/admin/AdminActionButton";
+import { AdminForm } from "@/components/admin/AdminForm";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function FeatureFlagsPage() {
-  const flags = await listFlags().catch(() => []);
-  const seo = await getSeo().catch(() => ({ title_template: "", og_image: null, description: "" }));
+  const flags = await listFeatureFlags().catch(() => []);
+  const seo = await getSeoDefaults().catch(() => ({ title_template: "", og_image: null, description: "" }));
+
+  async function setFlagAction(_previousState: AdminActionResult, fd: FormData): Promise<AdminActionResult> {
+    "use server";
+    return adminAction(async () => {
+      await setFlag({
+        key: fd.get("key"),
+        value: fd.get("value"),
+      });
+      return { ok: true, message: "Flag saved." };
+    });
+  }
+
+  async function setSeoAction(_previousState: AdminActionResult, fd: FormData): Promise<AdminActionResult> {
+    "use server";
+    return adminAction(async () => {
+      await setSeo({
+        title_template: fd.get("title_template") ?? "",
+        og_image: fd.get("og_image") || null,
+        description: fd.get("description") ?? "",
+      });
+      return { ok: true, message: "SEO defaults saved." };
+    });
+  }
 
   return (
     <div className="space-y-10">
@@ -31,14 +61,20 @@ export default async function FeatureFlagsPage() {
                     <td className="p-2 font-mono text-xs">{f.key}</td>
                     <td className="p-2 font-mono text-xs">{JSON.stringify(f.value)}</td>
                     <td className="p-2">
-                      <form
+                      <AdminActionButton
                         action={async () => {
                           "use server";
-                          await deleteFlag(f.key);
+                          return adminAction(async () => {
+                            await deleteFlag(f.key);
+                            return { ok: true, message: "Flag deleted." };
+                          });
                         }}
+                        confirmMessage={`Delete flag "${f.key}"?`}
+                        pendingLabel="Deleting..."
+                        className="text-xs text-red-500 hover:underline disabled:opacity-50"
                       >
-                        <button className="text-xs text-red-500 hover:underline">Delete</button>
-                      </form>
+                        Delete
+                      </AdminActionButton>
                     </td>
                   </tr>
                 ))
@@ -46,15 +82,10 @@ export default async function FeatureFlagsPage() {
             </tbody>
           </table>
         </div>
-        <form
-          action={async (fd: FormData) => {
-            "use server";
-            await setFlag({
-              key: fd.get("key"),
-              value: fd.get("value"),
-            });
-          }}
+        <AdminForm
+          action={setFlagAction}
           className="mt-4 flex gap-2"
+          submitLabel="Set"
         >
           <input
             name="key"
@@ -68,24 +99,15 @@ export default async function FeatureFlagsPage() {
             required
             className="flex-1 rounded border border-[color:var(--foreground)]/20 bg-transparent px-2 py-1 text-sm"
           />
-          <button className="rounded bg-[color:var(--foreground)] px-3 py-1 text-sm text-[color:var(--background)]">
-            Set
-          </button>
-        </form>
+        </AdminForm>
       </section>
 
       <section>
         <h1 className="mb-4 text-2xl font-semibold">SEO Defaults</h1>
-        <form
-          action={async (fd: FormData) => {
-            "use server";
-            await setSeo({
-              title_template: fd.get("title_template") ?? "",
-              og_image: fd.get("og_image") || null,
-              description: fd.get("description") ?? "",
-            });
-          }}
+        <AdminForm
+          action={setSeoAction}
           className="max-w-xl space-y-3"
+          submitLabel="Save"
         >
           <div>
             <label className="mb-1 block text-xs uppercase tracking-wider text-[color:var(--foreground)]/60">
@@ -119,10 +141,7 @@ export default async function FeatureFlagsPage() {
               className="w-full rounded border border-[color:var(--foreground)]/20 bg-transparent px-2 py-1 text-sm"
             />
           </div>
-          <button className="rounded bg-[color:var(--foreground)] px-3 py-1 text-sm text-[color:var(--background)]">
-            Save
-          </button>
-        </form>
+        </AdminForm>
       </section>
     </div>
   );

@@ -1,4 +1,3 @@
-"use client";
 import Link from "next/link";
 
 export interface Column<T> {
@@ -12,9 +11,10 @@ export interface EntityTableProps<T extends { id: string }> {
   columns: Column<T>[];
   editHref: (id: string) => string;
   newHref: string;
+  caption?: string;
 }
 
-export function EntityTable<T extends { id: string }>({ rows, columns, editHref, newHref }: EntityTableProps<T>) {
+export function EntityTable<T extends { id: string }>({ rows, columns, editHref, newHref, caption = "Admin rows" }: EntityTableProps<T>) {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
@@ -27,6 +27,7 @@ export function EntityTable<T extends { id: string }>({ rows, columns, editHref,
       </div>
       <div className="overflow-x-auto rounded border border-[color:var(--foreground)]/10">
         <table className="w-full text-sm">
+          <caption className="sr-only">{caption}</caption>
           <thead className="bg-[color:var(--foreground)]/5 text-left">
             <tr>
               {columns.map((c) => (
