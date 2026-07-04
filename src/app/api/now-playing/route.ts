@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import sharp from "sharp";
+import { getCloudflareContext } from "@opennextjs/cloudflare";
+import { consume } from "@/lib/admin/ratelimit";
 
 export interface NowPlayingData {
   playing: boolean;
@@ -11,74 +12,151 @@ export interface NowPlayingData {
   lastPlayedAt?: string;
 }
 
+interface LastFmImage {
+  "#text"?: string;
+}
+
+interface LastFmTrack {
+  "@attr"?: { nowplaying?: string };
+  name?: string;
+  artist?: { "#text"?: string };
+  album?: { "#text"?: string };
+  date?: { "#text"?: string };
+  image?: LastFmImage[];
+}
+
 const FALLBACK_ACCENT_COLOR = "#1db954";
-const SAMPLE_SIZE = 48;
+const ART_PROXY_PATH = "/api/now-playing/art";
+const PUBLIC_API_LIMIT = 120;
+const PUBLIC_API_WINDOW_SEC = 60;
+const ALBUM_ART_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
 
-function saturationFor(r: number, g: number, b: number) {
-  const max = Math.max(r, g, b) / 255;
-  const min = Math.min(r, g, b) / 255;
-  return max === 0 ? 0 : (max - min) / max;
-}
-
-function luminanceFor(r: number, g: number, b: number) {
-  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-}
-
-function pickDominantColor(data: Buffer) {
-  const buckets = new Map<string, { r: number; g: number; b: number; count: number; score: number }>();
-
-  for (let i = 0; i < data.length; i += 16) {
-    const alpha = data[i + 3];
-    if (alpha === undefined || alpha < 180) continue;
-
-    const r = data[i] ?? 0;
-    const g = data[i + 1] ?? 0;
-    const b = data[i + 2] ?? 0;
-    const saturation = saturationFor(r, g, b);
-    const luminance = luminanceFor(r, g, b);
-
-    if (saturation < 0.16 || luminance < 0.08 || luminance > 0.92) continue;
-
-    const qr = Math.round(r / 24) * 24;
-    const qg = Math.round(g / 24) * 24;
-    const qb = Math.round(b / 24) * 24;
-    const key = `${qr},${qg},${qb}`;
-    const score = (1 + saturation) * (0.85 + Math.abs(luminance - 0.5));
-    const bucket = buckets.get(key);
-
-    if (bucket) {
-      bucket.r += r;
-      bucket.g += g;
-      bucket.b += b;
-      bucket.count += 1;
-      bucket.score += score;
-    } else {
-      buckets.set(key, { r, g, b, count: 1, score });
-    }
-  }
-
-  let best: { r: number; g: number; b: number; count: number; score: number } | undefined;
-  for (const bucket of buckets.values()) {
-    if (!best || bucket.score > best.score) best = bucket;
-  }
-  if (!best) return FALLBACK_ACCENT_COLOR;
-
-  const r = Math.round(best.r / best.count);
-  const g = Math.round(best.g / best.count);
-  const b = Math.round(best.b / best.count);
-  return `rgb(${r} ${g} ${b})`;
-}
-
-async function getAlbumArt(artist: string, track: string): Promise<string | null> {
+async function getPublicApiDb(): Promise<D1Database | null> {
   try {
-    const q = encodeURIComponent(`${artist} ${track}`);
-    const res = await fetch(
-      `https://itunes.apple.com/search?term=${q}&entity=song&limit=1`,
-      { next: { revalidate: 3600 } }
+    const ctx = await getCloudflareContext({ async: true });
+    return (ctx.env as unknown as { DB?: D1Database }).DB ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function enforcePublicRateLimit(request: Request, db: D1Database | null): Promise<Response | null> {
+  try {
+    if (!db) return null;
+    const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+    const ok = await consume(db, `public-api:${ip}:now-playing`, PUBLIC_API_LIMIT, PUBLIC_API_WINDOW_SEC);
+    if (ok) return null;
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(PUBLIC_API_WINDOW_SEC) } },
     );
-    const data = await res.json();
-    if (data.resultCount > 0) {
-      return data.results[0].artworkUrl100.replace("100x100bb", "600x600bb");
+  } catch {
+    return null;
+  }
+}
+
+function upgradeItunesArtworkUrl(raw: string): string {
+  // iTunes returns URLs in a couple of shapes depending on CDN/age:
+  //   .../100x100bb.jpg   (older)
+  //   .../100x100.jpg     (newer, no bounding-box modifier)
+  // The `bb` suffix asks the CDN to crop-to-square. If it's present we can
+  // upgrade to a higher-res variant; otherwise use the URL as-is.
+  if (raw.includes("100x100bb")) return raw.replace("100x100bb", "600x600bb");
+  return raw;
+}
+
+function proxiedArtworkUrl(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:") return null;
+    return `${ART_PROXY_PATH}?src=${encodeURIComponent(url.toString())}`;
+  } catch {
+    return null;
+  }
+}
+
+function cleanTrackTitle(track: string): string {
+  return track
+    .replace(/\s*\([^)]*(?:from|feat\.?|with|remaster(?:ed)?|live|edit|version)[^)]*\)\s*/gi, " ")
+    .replace(/\s+-\s*(?:from|feat\.?|with|remaster(?:ed)?|live|edit|version).*/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function albumArtCacheKey(artist: string, track: string): string {
+  return `${artist} ${cleanTrackTitle(track)}`.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function getLastFmAlbumArt(track: LastFmTrack | undefined): string | null {
+  const images = Array.isArray(track?.image) ? track.image : [];
+  for (const image of [...images].reverse()) {
+    const raw = typeof image?.["#text"] === "string" ? image["#text"] : "";
+    if (!raw || raw.includes("2a96cbd8b46e442fc41c2b86b821562f")) continue;
+    const proxied = proxiedArtworkUrl(raw);
+    if (proxied) return proxied;
+  }
+  return null;
+}
+
+async function readCachedAlbumArt(db: D1Database | null, cacheKey: string) {
+  if (!db || !cacheKey) return null;
+  try {
+    const row = await db
+      .prepare("SELECT art_url, created_at FROM album_art_cache WHERE cache_key = ?")
+      .bind(cacheKey)
+      .first<{ art_url: string | null; created_at: number }>();
+    if (!row) return null;
+    return {
+      artUrl: row.art_url,
+      fresh: Math.floor(Date.now() / 1000) - row.created_at < ALBUM_ART_CACHE_TTL_SEC,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function writeCachedAlbumArt(db: D1Database | null, cacheKey: string, artUrl: string | null) {
+  if (!db || !cacheKey) return;
+  try {
+    await db
+      .prepare(
+        `INSERT INTO album_art_cache (cache_key, art_url, created_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(cache_key) DO UPDATE SET
+           art_url = excluded.art_url,
+           created_at = excluded.created_at`,
+      )
+      .bind(cacheKey, artUrl, Math.floor(Date.now() / 1000))
+      .run();
+  } catch {
+    // Cache writes are best-effort; the music payload should not fail because of them.
+  }
+}
+
+async function searchItunesAlbumArt(artist: string, track: string): Promise<string | null> {
+  const queries = Array.from(new Set([
+    `${artist} ${track}`,
+    `${artist} ${cleanTrackTitle(track)}`,
+    track,
+  ].map((q) => q.trim()).filter(Boolean)));
+
+  try {
+    for (const query of queries) {
+      const q = encodeURIComponent(query);
+      const res = await fetch(
+        `https://itunes.apple.com/search?term=${q}&entity=song&limit=3`,
+        { next: { revalidate: ALBUM_ART_CACHE_TTL_SEC } },
+      );
+      const data = (await res.json()) as {
+        resultCount?: number;
+        results?: Array<{ artworkUrl100?: string }>;
+      };
+      if (data.resultCount && data.resultCount > 0) {
+        const raw = data.results?.find((result) => result.artworkUrl100)?.artworkUrl100;
+        const proxied = proxiedArtworkUrl(raw ? upgradeItunesArtworkUrl(raw) : null);
+        if (proxied) return proxied;
+      }
     }
   } catch {
     // iTunes unavailable — fall back to null
@@ -86,27 +164,21 @@ async function getAlbumArt(artist: string, track: string): Promise<string | null
   return null;
 }
 
-async function getAlbumAccentColor(artUrl: string | null): Promise<string> {
-  if (!artUrl) return FALLBACK_ACCENT_COLOR;
+async function getAlbumArt(db: D1Database | null, artist: string, track: string): Promise<string | null> {
+  const cacheKey = albumArtCacheKey(artist, track);
+  const cached = await readCachedAlbumArt(db, cacheKey);
+  if (cached?.fresh) return cached.artUrl;
 
-  try {
-    const res = await fetch(artUrl, { next: { revalidate: 3600 } });
-    if (!res.ok) return FALLBACK_ACCENT_COLOR;
-
-    const input = Buffer.from(await res.arrayBuffer());
-    const data = await sharp(input)
-      .resize(SAMPLE_SIZE, SAMPLE_SIZE, { fit: "cover" })
-      .ensureAlpha()
-      .raw()
-      .toBuffer();
-
-    return pickDominantColor(data);
-  } catch {
-    return FALLBACK_ACCENT_COLOR;
-  }
+  const artUrl = await searchItunesAlbumArt(artist, track);
+  await writeCachedAlbumArt(db, cacheKey, artUrl);
+  return artUrl ?? cached?.artUrl ?? null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const db = await getPublicApiDb();
+  const limited = await enforcePublicRateLimit(request, db);
+  if (limited) return limited;
+
   const apiKey = process.env.LASTFM_API_KEY;
   const username = process.env.LASTFM_USERNAME;
 
@@ -119,14 +191,18 @@ export async function GET() {
     { next: { revalidate: 30 } }
   );
 
-  const data = await res.json();
+  const data = (await res.json()) as {
+    error?: number;
+    message?: string;
+    recenttracks?: { track?: unknown };
+  };
 
   if (data.error) {
     return NextResponse.json({ error: data.message }, { status: 502 });
   }
 
-  const tracks = data.recenttracks.track;
-  const track = Array.isArray(tracks) ? tracks[0] : tracks;
+  const tracks = (data.recenttracks?.track ?? []) as unknown[];
+  const track = (Array.isArray(tracks) ? tracks[0] : tracks) as LastFmTrack | undefined;
 
   const playing = track?.["@attr"]?.nowplaying === "true";
   const title: string = track?.name ?? "";
@@ -134,10 +210,17 @@ export async function GET() {
   const album: string = track?.album?.["#text"] ?? "";
   const lastPlayedAt: string | undefined = track?.date?.["#text"];
 
-  const artUrl = await getAlbumArt(artist, title);
-  const accentColor = await getAlbumAccentColor(artUrl);
+  const artUrl = getLastFmAlbumArt(track) ?? await getAlbumArt(db, artist, title);
 
-  const payload: NowPlayingData = { playing, title, artist, album, artUrl, accentColor, lastPlayedAt };
+  const payload: NowPlayingData = {
+    playing,
+    title,
+    artist,
+    album,
+    artUrl,
+    accentColor: FALLBACK_ACCENT_COLOR,
+    lastPlayedAt,
+  };
   return NextResponse.json(payload, {
     headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60" },
   });

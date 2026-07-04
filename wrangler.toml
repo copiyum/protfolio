@@ -1,0 +1,50 @@
+name = "pf-admin"
+main = ".open-next/worker.js"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+[observability]
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
+[triggers]
+crons = ["0 3 * * *"]  # daily 03:00 UTC: audit snapshot to R2
+
+[[routes]]
+pattern = "sarang.dev/*"
+zone_name = "sarang.dev"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pf-admin"
+database_id = "1a95c7c1-e993-41d9-8ee4-e7bbf61e74ef"
+
+[[r2_buckets]]
+binding = "R2"
+bucket_name = "pf-admin-assets"
+
+[images]
+binding = "IMAGES"
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[services]]
+binding = "WORKER_SELF_REFERENCE"
+service = "pf-admin"
+
+[vars]
+NODE_ENV = "production"
+NEXT_PUBLIC_TURNSTILE_SITEKEY = "0x4AAAAAADuge60msITfVisd"
+
+# Secrets via `wrangler secret put`:
+# ADMIN_COOKIE_SECRET
+# CF_ACCESS_AUD
+CF_ACCESS_TEAM_DOMAIN="floral-tree-4100.cloudflareaccess.com"
+# TURNSTILE_SECRET
+# R2_PRESIGN_SECRET
+# ALERT_EMAIL_WEBHOOK
+# CRON_SECRET

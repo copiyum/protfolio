@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import useReducedMotion from "@/hooks/use-reduced-motion";
+import useHasMounted from "@/hooks/use-has-mounted";
 
 // Physics + distribution tuning — single-use, so it lives with its only consumer.
 const STAR_DENSITY_DEFAULT = 0.000184;
@@ -29,8 +30,7 @@ type Star = { x: number; y: number; r: number; a: number; av: number; twinkle: n
 export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { density?: number }) {
   const { theme, resolvedTheme } = useTheme();
   const reducedMotion = useReducedMotion();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useHasMounted();
   const themeRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     themeRef.current = mounted ? resolvedTheme : theme;
@@ -175,7 +175,7 @@ export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { dens
   return (
     <canvas
       ref={canvasRef}
-  className="pointer-events-none fixed inset-0 -z-10 w-full h-full"
+      className="pointer-events-none fixed inset-0 z-[1] h-full w-full"
       aria-hidden
     />
   );

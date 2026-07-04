@@ -1,0 +1,68 @@
+"use client";
+
+import { useState, type FormEvent } from "react";
+import { AdminButton, ErrorBanner, TurnstileWidget, WarningBanner } from "@/components/admin";
+import {
+  passkeyFormData,
+  runPasskeyRegistration,
+  useWebAuthnFlow,
+} from "@/components/admin/useWebAuthn";
+import { beginRegistrationAction, completeRegistrationAction } from "@/lib/admin/actions/auth";
+
+export function RegisterPasskeyForm({ sitekey, turnstileBypass = false }: { sitekey: string; turnstileBypass?: boolean }) {
+  const [name, setName] = useState("");
+  const flow = useWebAuthnFlow({
+    sitekey,
+    turnstileBypass,
+    begin: () => beginRegistrationAction("add"),
+    ceremony: runPasskeyRegistration,
+    complete: (formData) => completeRegistrationAction(formData, "add"),
+    formData: (responseJSON, token) => passkeyFormData({ responseJSON, token, name }),
+    onSuccess: () => {
+      window.location.href = "/admin/passkeys";
+    },
+    fallbackError: "Registration failed",
+    missingTokenError: "Bot challenge not solved - disable any content blockers and retry.",
+  });
+
+  function register(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    void flow.run();
+  }
+
+  return (
+    <div className="mx-auto max-w-md p-8">
+      <h1 className="mb-4 text-2xl font-semibold">Register Additional Passkey</h1>
+      <div className="mb-4 space-y-3">
+        {flow.error && <ErrorBanner>{flow.error}</ErrorBanner>}
+        {!sitekey && !turnstileBypass && <WarningBanner>Bot challenge is not configured.</WarningBanner>}
+        {flow.turnstile.failed && (
+          <WarningBanner>
+            Bot challenge failed to load. Disable content blockers or allow <code className="font-mono text-xs">challenges.cloudflare.com</code> and reload.
+          </WarningBanner>
+        )}
+      </div>
+      <form onSubmit={register} className="space-y-3">
+        <input
+          value={name}
+          onChange={(event) => setName(event.target.value)}
+          placeholder="Device name"
+          className="w-full rounded border border-[color:var(--foreground)]/20 bg-transparent px-2 py-1 text-sm"
+          required
+        />
+        <AdminButton type="submit" disabled={flow.busy || !flow.challengeReady} fullWidth className="px-4 py-2 text-base">
+          {flow.busy ? "Awaiting authenticator..." : flow.challengeReady ? "Register" : "Complete bot check"}
+        </AdminButton>
+      </form>
+      {sitekey && !turnstileBypass && (
+        <TurnstileWidget
+          sitekey={sitekey}
+          action="register"
+          onToken={flow.turnstile.handleToken}
+          onError={flow.turnstile.handleError}
+          resetKey={flow.turnstile.resetKey}
+        />
+      )}
+    </div>
+  );
+}

@@ -16,20 +16,18 @@ type SimpleColorPickerProps = {
 };
 
 export function SimpleColorPicker({ className, value = "#000000", onChange }: SimpleColorPickerProps) {
-  const [customColor, setCustomColor] = React.useState(value);
+  const [colorState, setColorState] = React.useState(() => ({ sourceValue: value, customColor: value }));
   const [showCustom, setShowCustom] = React.useState(false);
-
-  React.useEffect(() => {
-    setCustomColor(value);
-  }, [value]);
+  const customColor = colorState.sourceValue === value ? colorState.customColor : value;
 
   const handlePresetClick = (color: string) => {
+    setColorState({ sourceValue: color, customColor: color });
     onChange?.(color);
     setShowCustom(false);
   };
 
   const handleCustomChange = (color: string) => {
-    setCustomColor(color);
+    setColorState({ sourceValue: color, customColor: color });
     onChange?.(color);
   };
 

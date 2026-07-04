@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "ES2017",
+    "target": "ES2022",
     "lib": [
       "dom",
       "dom.iterable",
@@ -25,10 +25,14 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@/lib/admin/*": [
+        "./src/lib/admin/*"
       ]
     },
     "types": [
-      "vitest/globals"
+      "node",
+      "@cloudflare/workers-types"
     ]
   },
   "include": [
@@ -39,6 +43,11 @@
     ".next/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "tests",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
   ]
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import useMinuteClock from "./use-minute-clock";
 
 function computeIST() {
   const now = new Date();
@@ -18,21 +18,5 @@ function computeIST() {
 // a client-only maplibre widget that paints nothing before JS anyway.
 // The display is HH:MM, so we tick on the minute boundary, not every second.
 export default function useISTClock() {
-  const [state, setState] = useState(computeIST);
-
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      const now = new Date();
-      const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-      timeout = setTimeout(() => {
-        setState(computeIST());
-        schedule();
-      }, msToNextMinute);
-    };
-    schedule();
-    return () => clearTimeout(timeout);
-  }, []);
-
-  return state;
+  return useMinuteClock(computeIST);
 }

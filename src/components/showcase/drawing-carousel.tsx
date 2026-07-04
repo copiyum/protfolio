@@ -75,10 +75,10 @@ export default function DrawingCarousel({ className = "" }: { className?: string
           <div className="relative flex h-[184px] w-full flex-col items-center justify-start overflow-hidden rounded-2xl border border-[color:var(--foreground)]/8 bg-[color:var(--foreground)]/[0.025] pt-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="relative mb-4 flex h-[116px] w-[84%] items-center justify-center rounded-sm border border-gray-200 bg-gray-50">
               {images.map((image, imageIndex) => (
-                <Image
-                  key={image.src}
-                  src={image.src}
-                  alt={`drawing-${imageIndex}`}
+	                <Image
+	                  key={image.src}
+	                  src={image.src}
+	                  alt={imageIndex === index ? `Drawing by ${image.artist ?? "unknown artist"}` : ""}
                   fill
                   sizes="(max-width: 768px) 50vw, 200px"
                   className={`${styles.carouselImage} ${imageIndex === index ? styles.carouselImageActive : ""}`}

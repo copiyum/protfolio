@@ -1,4 +1,4 @@
-import { socialLinks } from "@/data/social-links";
+import type { SocialLink } from "@/data/social-links";
 
 const brandIcons: Record<string, React.ReactNode> = {
   GitHub: (
@@ -23,7 +23,7 @@ const brandIcons: Record<string, React.ReactNode> = {
   ),
 };
 
-export default function SocialLinks() {
+export default function SocialLinks({ links }: { links: SocialLink[] }) {
   return (
     <section aria-labelledby="elsewhere-heading">
       <h2
@@ -33,7 +33,7 @@ export default function SocialLinks() {
         Elsewhere
       </h2>
       <ul className="flex flex-wrap gap-2">
-        {socialLinks.map((s) => (
+        {links.map((s) => (
           <li key={s.label}>
             <a
               href={s.href}

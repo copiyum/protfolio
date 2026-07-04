@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { type ContributionsData, getMonthLabels } from "./lib/get-cached-contributions";
 
 // violet ramp — matches --accent, not GitHub green
@@ -27,6 +28,7 @@ async function GitHubContributionsInner({
   if (!data) return null;
 
   const { days, total } = data;
+  const githubUser = githubProfileUrl.split("/").pop() ?? "";
   const lead = new Date(days[0].date + "T00:00:00Z").getUTCDay();
   const cols = Math.ceil((lead + days.length) / 7);
   const monthLabels = getMonthLabels(days);
@@ -93,14 +95,15 @@ async function GitHubContributionsInner({
         rel="noreferrer"
         className="mt-2 flex items-center gap-2 text-xs text-[color:var(--foreground)]/40 hover:text-[color:var(--accent)]"
       >
-        <img
-          src={`https://github.com/${githubProfileUrl.split("/").pop()}.png?size=80`}
+        <Image
+          src={`https://github.com/${githubUser}.png?size=80`}
           alt=""
           width={20}
           height={20}
+          unoptimized
           className="rounded-full"
         />
-        @{githubProfileUrl.split("/").pop()}
+        @{githubUser}
       </a>
     </div>
   );

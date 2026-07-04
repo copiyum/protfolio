@@ -15,7 +15,13 @@
 
 # next.js
 /.next/
+/.open-next/
+/.opennext/
 /out/
+
+# wrangler / opennext local state
+/.wrangler/
+/.wrangler.toml.local
 
 # production
 /build
@@ -43,3 +49,6 @@ next-env.d.ts
 motion-audits/
 .superpowers/
 .token-savior-cache.json
+.commandcode/
+excalidraw.log
+wrangler.t

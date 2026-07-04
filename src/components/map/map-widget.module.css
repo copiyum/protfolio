@@ -37,6 +37,18 @@
   inset: 0;
 }
 
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--background), var(--foreground) 4%);
+  color: color-mix(in srgb, var(--foreground), transparent 45%);
+  font-size: 12px;
+  pointer-events: none;
+}
+
 /* drive fade via CSS variable so transitions aren't overridden */
 .container:hover { --fade: 0; }
 .hovering { --fade: 0; }
@@ -141,7 +153,7 @@
 }
 
 .cloudDark {
-  --cloud-base: 1 !important; /* darker cloud base in dark theme */
+  --cloud-base: 1; /* darker cloud base in dark theme */
 }
 
 /* Back parallax layer — bigger, slower, fainter, higher up */
@@ -153,7 +165,7 @@
   filter: brightness(1.2) blur(1px) drop-shadow(0 0 14px rgba(255, 255, 255, 0.3));
 }
 .cloudBack.cloudDark {
-  --cloud-base: 0.5 !important;
+  --cloud-base: 0.5;
 }
 
 /* Pause motion on hover, let opacity transition do the fade */

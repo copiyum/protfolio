@@ -4,12 +4,12 @@ import Image from "next/image";
 import { CubeIcon, LinkIcon } from "@heroicons/react/24/outline";
 import type { Project } from "@/data/projects";
 import ExpandIcon from "@/components/ui/expand-icon";
+import { DateRange } from "./DateRange";
+import { SkillTags } from "./SkillTags";
 
 export default function ProjectItem({ project }: { project: Project }) {
   const [open, setOpen] = useState(!!project.isExpanded);
   const { start, end } = project.period;
-  const isOngoing = !end;
-  const isSingle = end === start;
   const hasBody = !!project.description || project.skills.length > 0;
 
   const toggle = () => { if (hasBody) setOpen((v) => !v); };
@@ -36,15 +36,7 @@ export default function ProjectItem({ project }: { project: Project }) {
             <div className="flex-1">
               <h3 className="mb-1 text-pretty font-medium leading-snug">{project.title}</h3>
               <dl className="text-sm text-[color:var(--foreground)]/55">
-                <dd className="flex items-center gap-0.5 tabular-nums">
-                  <span>{start}</span>
-                  {!isSingle && (
-                    <>
-                      <span className="font-mono">—</span>
-                      {isOngoing ? <span className="font-mono text-[1.1em] leading-none">∞</span> : <span>{end}</span>}
-                    </>
-                  )}
-                </dd>
+                <DateRange start={start} end={end} collapseSingle />
               </dl>
             </div>
 
@@ -76,17 +68,7 @@ export default function ProjectItem({ project }: { project: Project }) {
             {project.description && (
               <p className="text-[13px] leading-relaxed text-[color:var(--foreground)]/70">{project.description}</p>
             )}
-            {project.skills.length > 0 && (
-              <ul className="flex flex-wrap gap-1.5">
-                {project.skills.map((s) => (
-                  <li key={s}>
-                    <span className="inline-flex items-center rounded-md border border-[color:var(--foreground)]/10 bg-[color:var(--foreground)]/[0.04] px-1.5 py-0.5 font-mono text-xs text-[color:var(--foreground)]/60">
-                      {s}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <SkillTags skills={project.skills} />
           </div>
         </div>
       </div>

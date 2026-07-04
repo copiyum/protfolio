@@ -2,14 +2,14 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import styles from "./tech-stack.module.css";
-import { techStack, type TechItem } from "@/data/tech-stack";
+import type { TechItem } from "@/data/tech-stack";
 import TechIcon from "../ui/tech-icon";
 
 const TECH_STACK_CLICK_TIMEOUT = 5000; // ms — clicked badge persistence
 const TECH_STACK_BOUNCE_DURATION = 300; // ms — icon bounce
 const IDLE_COLOR = "#9ca3af"; // brighter neutral gray — readable on near-black (idle ~0.6 luminance)
 
-export default function TechStack() {
+export default function TechStack({ techStack }: { techStack: TechItem[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [clickedOrder, setClickedOrder] = useState<number[]>([]);
   // store timers per-clicked index so each clicked badge disappears 5s after its own click
@@ -96,7 +96,7 @@ export default function TechStack() {
   };
 
   return (
-  <div ref={containerRef} className="relative flex flex-wrap cursor-none select-none gap-2 overflow-hidden" style={{ background: 'transparent' }}>
+  <div ref={containerRef} className={`${styles.cursorArea} relative flex flex-wrap select-none gap-2 overflow-hidden`} style={{ background: 'transparent' }}>
       {techStack.map((tech, index) => (
         <div
           key={tech.name}
@@ -104,7 +104,7 @@ export default function TechStack() {
           style={{ '--glow-color': tech.color } as React.CSSProperties}
         >
           <div
-            className="tech-card group relative flex cursor-none flex-col items-center justify-center gap-2 rounded-lg border border-[color:var(--foreground)]/20 bg-neutral-50 dark:bg-[color:var(--background)] px-2 py-4 text-center shadow-2xs shadow-black/5 outline-offset-2 transition-[color,box-shadow,transform] duration-[140ms] ease-out hover:-translate-y-0.5 hover:cursor-none overflow-hidden has-data-[state=checked]:border-ring/30 has-data-[state=checked]:bg-accent sm:hover:bg-muted sm:has-data-[state=checked]:hover:bg-accent/70 sm:dark:hover:bg-muted/40"
+            className="tech-card group relative flex flex-col items-center justify-center gap-2 rounded-lg border border-[color:var(--foreground)]/20 bg-neutral-50 dark:bg-[color:var(--background)] px-2 py-4 text-center shadow-2xs shadow-black/5 outline-offset-2 transition-[color,box-shadow,transform] duration-[140ms] ease-out hover:-translate-y-0.5 overflow-hidden has-data-[state=checked]:border-ring/30 has-data-[state=checked]:bg-accent sm:hover:bg-muted sm:has-data-[state=checked]:hover:bg-accent/70 sm:dark:hover:bg-muted/40"
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
             onClick={() => handleClick(index)}

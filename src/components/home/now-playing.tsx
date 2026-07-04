@@ -7,12 +7,25 @@ interface Props {
   artist: string;
   artUrl: string | null;
   accentColor?: string | null;
+  loading?: boolean;
 }
 
 const FALLBACK_BAR_COLOR = "#1db954";
 
-export default function NowPlaying({ playing, title, artist, artUrl, accentColor }: Props) {
+export default function NowPlaying({ playing, title, artist, artUrl, accentColor, loading = false }: Props) {
   const barColor = accentColor || FALLBACK_BAR_COLOR;
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-3" aria-live="polite" aria-busy="true">
+        <div className="size-10 shrink-0 animate-pulse rounded-md bg-[color:var(--foreground)]/8" />
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="h-3 w-28 animate-pulse rounded bg-[color:var(--foreground)]/10" />
+          <div className="h-2.5 w-20 animate-pulse rounded bg-[color:var(--foreground)]/8" />
+        </div>
+      </div>
+    );
+  }
 
   if (!playing) {
     return (
@@ -32,7 +45,7 @@ export default function NowPlaying({ playing, title, artist, artUrl, accentColor
       {/* Album art */}
       <div className="relative size-10 shrink-0 overflow-hidden rounded-md bg-[color:var(--foreground)]/10">
         {artUrl ? (
-          <Image src={artUrl} alt={title} fill className="object-cover" unoptimized />
+          <Image src={artUrl} alt={title} fill className="object-cover" crossOrigin="anonymous" unoptimized />
         ) : (
           <div className="flex size-full items-center justify-center text-base">♪</div>
         )}
