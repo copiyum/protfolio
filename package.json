@@ -13,7 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "migrate": "tsx scripts/migrate-content-to-d1.ts",
-    "postinstall": "wrangler types"
+    "postinstall": "node -e \"if (!process.env.CI) process.exit(1)\" || wrangler types"
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
