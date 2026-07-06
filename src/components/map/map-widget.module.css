@@ -1,11 +1,15 @@
 .container {
   position: relative;
+  --map-radius: 22px;
   width: 100%;
   max-width: 100%;
   height: clamp(150px, 22vh, 210px);
   margin: 0;
-  border-radius: 22px;
+  border-radius: var(--map-radius);
   overflow: hidden;
+  overflow: clip;
+  contain: paint;
+  isolation: isolate;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 45px rgba(0, 0, 0, 0.16);
   z-index: 1;
   /* hover-driven fade control */
@@ -35,6 +39,15 @@
 .map {
   position: absolute;
   inset: 0;
+  overflow: hidden;
+  overflow: clip;
+  border-radius: inherit;
+  clip-path: inset(0 round var(--map-radius));
+}
+
+.map :global(.maplibregl-canvas-container),
+.map :global(.maplibregl-canvas) {
+  border-radius: inherit;
 }
 
 .loading {
@@ -47,6 +60,10 @@
   color: color-mix(in srgb, var(--foreground), transparent 45%);
   font-size: 12px;
   pointer-events: none;
+  overflow: hidden;
+  overflow: clip;
+  border-radius: inherit;
+  clip-path: inset(0 round var(--map-radius));
 }
 
 /* drive fade via CSS variable so transitions aren't overridden */
@@ -98,6 +115,11 @@
   inset: 0;
   pointer-events: none; /* visuals shouldn't capture clicks */
   z-index: 3; /* above map so it can visually fade */
+  overflow: hidden;
+  overflow: clip;
+  border-radius: inherit;
+  clip-path: inset(0 round var(--map-radius));
+  contain: paint;
 }
 
 /* coordinate space for the motion path = the full map box */
@@ -105,6 +127,10 @@
   position: absolute;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
+  overflow: clip;
+  border-radius: inherit;
+  clip-path: inset(0 round var(--map-radius));
   opacity: var(--fade);
   transition: opacity var(--motion-panel) var(--ease-standard);
 }
