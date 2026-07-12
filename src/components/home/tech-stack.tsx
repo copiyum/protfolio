@@ -104,7 +104,7 @@ export default function TechStack({ techStack }: { techStack: TechItem[] }) {
           style={{ '--glow-color': tech.color } as React.CSSProperties}
         >
           <div
-            className="tech-card group relative flex flex-col items-center justify-center gap-2 rounded-lg border border-[color:var(--foreground)]/20 bg-neutral-50 dark:bg-[color:var(--background)] px-2 py-4 text-center shadow-2xs shadow-black/5 outline-offset-2 transition-[color,box-shadow,transform] duration-[140ms] ease-out hover:-translate-y-0.5 overflow-hidden has-data-[state=checked]:border-ring/30 has-data-[state=checked]:bg-accent sm:hover:bg-muted sm:has-data-[state=checked]:hover:bg-accent/70 sm:dark:hover:bg-muted/40"
+            className={`${styles.surface} tech-card group relative flex flex-col items-center justify-center gap-2 overflow-hidden rounded-lg border border-[color:var(--foreground)]/20 px-2 py-4 text-center shadow-2xs shadow-black/5 outline-offset-2 transition-[color,background-color,box-shadow,transform] duration-[140ms] ease-out hover:-translate-y-0.5`}
             onMouseEnter={() => setHoveredIndex(index)}
             onMouseLeave={() => setHoveredIndex(null)}
             onClick={() => handleClick(index)}

@@ -2,6 +2,14 @@
   transform: var(--card-transform);
 }
 
+.surface {
+  background: var(--card-bg);
+}
+
+.surface:hover {
+  background: color-mix(in srgb, var(--foreground), transparent 95%);
+}
+
 .cursorArea,
 .cursorArea * {
   cursor: none;
