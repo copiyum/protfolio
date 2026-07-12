@@ -1,5 +1,4 @@
 import VisitorsBoard from "@/components/visitors/VisitorsBoard";
-import AnimatedStars from "@/components/ui/animated-stars";
 import { getTurnstileSiteKey } from "@/lib/admin/runtime-env";
 import { getVisitorNotes } from "@/lib/admin/read";
 
@@ -13,7 +12,6 @@ export default async function VisitorsPage() {
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
-      <AnimatedStars />
       
       <div className="relative z-10 mx-auto max-w-[550px] px-4 py-8">
         <div className="mb-6">

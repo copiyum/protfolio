@@ -12,6 +12,7 @@ declare global {
       DB: D1Database;
       R2: R2Bucket;
       TURNSTILE_SECRET: string;
+      RATE_LIMIT_SECRET: string;
       TEST_MIGRATIONS: D1Migration[];
     }
   }

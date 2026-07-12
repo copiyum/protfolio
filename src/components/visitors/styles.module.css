@@ -76,10 +76,16 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-user-drag: none;
+  touch-action: none;
   transform-origin: center;
   animation: waterfall var(--motion-panel) var(--ease-standard) both;
   animation-delay: calc(var(--i, 0) * 50ms);
   transition: left 0.4s var(--ease-standard), top 0.4s var(--ease-standard);
+}
+
+.card:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
 }
 
 .cardShuffling {

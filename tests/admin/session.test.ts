@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { signSession, verifySession } from "@/lib/admin/session";
 
-const SECRET = "test-secret-32-bytes-min-padding-xx";
+const SECRET = "session-key-9vN4xQ2mL7pR8sT6cD5fG3";
 const CRED = "cred-abc";
 
 describe("session cookie", () => {
@@ -28,6 +28,6 @@ describe("session cookie", () => {
   it("rejects wrong secret", async () => {
     const exp = new Date(Date.now() + 60_000).toISOString();
     const cookie = await signSession({ credentialId: CRED, expiresAt: exp, nonce: "n1" }, SECRET);
-    expect(await verifySession(cookie, "different-secret-padding-x")).toBeNull();
+    expect(await verifySession(cookie, "different-key-4mQ8sV2nK6pT9xR5dL7c")).toBeNull();
   });
 });

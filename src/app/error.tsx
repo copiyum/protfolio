@@ -13,8 +13,11 @@ export default function ErrorBoundary({
         <div>
           <h1 className="text-lg font-semibold">Something went wrong</h1>
           <p className="mt-1 text-sm text-[color:var(--foreground)]/60">
-            {error.message || "The page failed to render."}
+            The page failed to render. Please try again.
           </p>
+          {error.digest ? (
+            <p className="mt-2 font-mono text-xs text-[color:var(--foreground)]/45">Reference: {error.digest}</p>
+          ) : null}
         </div>
         <button
           type="button"

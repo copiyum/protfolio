@@ -52,7 +52,14 @@ export async function middleware(request: NextRequest) {
   if (isAdmin) {
     const playwrightBypass = isPlaywrightDevBypass();
     const ctx = await getCloudflareContext({ async: true });
-    const env = ctx.env as unknown as AdminEdgeEnv;
+    const cloudflareEnv = ctx.env as unknown as AdminEdgeEnv;
+    const env = playwrightBypass ? {
+      ...cloudflareEnv,
+      ADMIN_COOKIE_SECRET: process.env.ADMIN_COOKIE_SECRET ?? cloudflareEnv.ADMIN_COOKIE_SECRET,
+      RATE_LIMIT_SECRET: process.env.RATE_LIMIT_SECRET ?? cloudflareEnv.RATE_LIMIT_SECRET,
+      CF_ACCESS_AUD: process.env.CF_ACCESS_AUD ?? cloudflareEnv.CF_ACCESS_AUD,
+      CF_ACCESS_TEAM_DOMAIN: process.env.CF_ACCESS_TEAM_DOMAIN ?? cloudflareEnv.CF_ACCESS_TEAM_DOMAIN,
+    } : cloudflareEnv;
     const guard = createAuthGuard(env);
     adminEnv = env;
 

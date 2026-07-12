@@ -7,6 +7,7 @@ import {
   verifyStoredSession,
   type SessionPayload,
 } from "./session";
+import { assertStrongSecret, fingerprintIp, trustedClientIp } from "@/lib/security";
 
 export const ADMIN_COOKIE_NAME = "__Host-pf_admin";
 export const ADMIN_SESSION_TTL_MS = 15 * 60 * 1000;
@@ -25,10 +26,12 @@ export interface AdminAuthEnv {
   CF_ACCESS_TEAM_DOMAIN: string;
   TURNSTILE_SECRET?: string;
   ALERT_EMAIL_WEBHOOK?: string;
+  RATE_LIMIT_SECRET?: string;
 }
 
 export interface AuthMeta {
   ip: string;
+  storageIp: string;
   ua?: string;
   host?: string;
 }
@@ -91,9 +94,17 @@ export async function verifyCfAccessJwt(jwt: string, aud: string, teamDomain: st
 
 export function metaFromHeaders(headers: Headers): AuthMeta {
   return {
-    ip: headers.get("cf-connecting-ip") ?? "unknown",
+    ip: trustedClientIp(headers),
+    storageIp: "ip:unknown",
     ua: headers.get("user-agent") ?? undefined,
     host: headers.get("x-forwarded-host") ?? headers.get("host") ?? undefined,
+  };
+}
+
+async function protectMeta(env: AdminAuthEnv, meta: AuthMeta): Promise<AuthMeta> {
+  return {
+    ...meta,
+    storageIp: await fingerprintIp(meta.ip, env.RATE_LIMIT_SECRET ?? env.ADMIN_COOKIE_SECRET),
   };
 }
 
@@ -117,7 +128,7 @@ function cookieValueFromHeader(cookieHeader: string | null, name: string): strin
 function makeAdminContext(env: AdminAuthEnv, session: SessionPayload, meta: AuthMeta): AdminContext {
   const auditMeta = {
     actorCredentialId: session.credentialId,
-    ip: meta.ip,
+    ip: meta.storageIp,
     ua: meta.ua,
   };
   return {
@@ -137,6 +148,11 @@ function makeAdminContext(env: AdminAuthEnv, session: SessionPayload, meta: Auth
 }
 
 export function createAuthGuard(env: AdminAuthEnv) {
+  assertStrongSecret("ADMIN_COOKIE_SECRET", env.ADMIN_COOKIE_SECRET);
+  if (!env.CF_ACCESS_AUD?.trim()) throw new Error("CF_ACCESS_AUD is required");
+  if (!/^[a-z0-9.-]+$/i.test(env.CF_ACCESS_TEAM_DOMAIN ?? "")) {
+    throw new Error("CF_ACCESS_TEAM_DOMAIN is invalid");
+  }
   async function assertCfAccess(headers: Headers, skipCfAccess = false): Promise<void> {
     if (skipCfAccess) return;
     const jwt = headers.get("cf-access-jwt-assertion");
@@ -166,7 +182,7 @@ export function createAuthGuard(env: AdminAuthEnv) {
   }
 
   async function cfAccessGuard(headers: Headers, options: RequestGuardOptions & { requestUrl?: string; skipCfAccess?: boolean } = {}): Promise<CfAccessContext> {
-    const meta = metaFromHeaders(headers);
+    const meta = await protectMeta(env, metaFromHeaders(headers));
     await assertCfAccess(headers, options.skipCfAccess);
     if (options.write) assertWriteOrigin(headers, meta, options.requestUrl);
     return { env, db: env.DB, meta };
@@ -185,7 +201,7 @@ export function createAuthGuard(env: AdminAuthEnv) {
     requestUrl?: string;
     skipCfAccess?: boolean;
   }): Promise<AdminContext> {
-    const meta = metaFromHeaders(headers);
+    const meta = await protectMeta(env, metaFromHeaders(headers));
     await assertCfAccess(headers, skipCfAccess);
     if (write) assertWriteOrigin(headers, meta, requestUrl);
     const session = await verifyCookieSession(cookie ?? null);
@@ -245,7 +261,7 @@ export function createAuthGuard(env: AdminAuthEnv) {
     const nonce = crypto.randomUUID();
     await env.DB.prepare(
       "INSERT INTO sessions (id, passkey_credential_id, expires_at, ip, ua) VALUES (?, ?, ?, ?, ?)",
-    ).bind(sessionId, credentialId, expiresAt, meta.ip, meta.ua ?? null).run();
+    ).bind(sessionId, credentialId, expiresAt, meta.storageIp, meta.ua ?? null).run();
     const cookie = await signSession({ sessionId, credentialId, expiresAt, nonce, freshAt: Date.now() }, env.ADMIN_COOKIE_SECRET);
     return { cookie, expiresAt, sessionId };
   }

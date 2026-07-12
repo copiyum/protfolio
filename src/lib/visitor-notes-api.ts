@@ -1,5 +1,6 @@
 import { consume } from "@/lib/admin/ratelimit";
 import { verifyTurnstile } from "@/lib/admin/turnstile";
+import { fingerprintIp, trustedClientIp } from "@/lib/security";
 import {
   VisitorNoteValidationError,
   createVisitorNote,
@@ -12,6 +13,7 @@ export interface VisitorNotesEnv {
   DB: D1Database;
   R2: R2Bucket;
   TURNSTILE_SECRET?: string;
+  RATE_LIMIT_SECRET?: string;
 }
 
 type VerifyTurnstile = typeof verifyTurnstile;
@@ -37,9 +39,7 @@ function json(body: unknown, init?: ResponseInit): Response {
 }
 
 function clientIp(request: Request): string {
-  return request.headers.get("cf-connecting-ip")
-    ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? "unknown";
+  return trustedClientIp(request.headers);
 }
 
 function requestHostname(request: Request): string | null {
@@ -124,7 +124,8 @@ export async function handleVisitorNotesPost(
   }
 
   const ip = clientIp(request);
-  const preflightOk = await limit(env.DB, `visitor-note-pre:${ip}`, PREFLIGHT_LIMIT, PREFLIGHT_WINDOW_SEC);
+  const ipKey = await fingerprintIp(ip, env.RATE_LIMIT_SECRET ?? env.TURNSTILE_SECRET);
+  const preflightOk = await limit(env.DB, `visitor-note-pre:${ipKey}`, PREFLIGHT_LIMIT, PREFLIGHT_WINDOW_SEC);
   if (!preflightOk) {
     return json({ error: "Too many requests" }, { status: 429, headers: { "Retry-After": String(PREFLIGHT_WINDOW_SEC) } });
   }
@@ -146,7 +147,7 @@ export async function handleVisitorNotesPost(
     return json({ error: "Human verification failed" }, { status: 403 });
   }
 
-  const submitOk = await limit(env.DB, `visitor-note-submit:${ip}`, SUBMIT_LIMIT, SUBMIT_WINDOW_SEC);
+  const submitOk = await limit(env.DB, `visitor-note-submit:${ipKey}`, SUBMIT_LIMIT, SUBMIT_WINDOW_SEC);
   if (!submitOk) {
     return json({ error: "Too many submissions" }, { status: 429, headers: { "Retry-After": String(SUBMIT_WINDOW_SEC) } });
   }
@@ -166,9 +167,10 @@ export async function handleVisitorNoteImageGet(_request: Request, env: VisitorN
   if (!object?.body) return new Response("Not found", { status: 404 });
   return new Response(object.body, {
     headers: {
-      "Cache-Control": "no-store",
+      "Cache-Control": "public, max-age=31536000, immutable",
       "Content-Type": "image/png",
       "X-Content-Type-Options": "nosniff",
+      "ETag": object.httpEtag,
     },
   });
 }

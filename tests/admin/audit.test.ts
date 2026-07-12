@@ -6,7 +6,6 @@ import { writeAudit } from "@/lib/admin/audit";
 describe("audit writer", () => {
   beforeEach(async () => {
     await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
-    await env.DB.exec("DELETE FROM audit_log;");
   });
 
   it("inserts a row", async () => {
@@ -22,5 +21,11 @@ describe("audit writer", () => {
     expect(id).toBeTruthy();
     const row = await env.DB.prepare("SELECT action FROM audit_log WHERE id = ?").bind(id).first<{ action: string }>();
     expect(row?.action).toBe("create_post");
+  });
+
+  it("prevents updates and deletion during the retention window", async () => {
+    const id = await writeAudit(env.DB, { action: "protected" });
+    await expect(env.DB.prepare("UPDATE audit_log SET action = 'changed' WHERE id = ?").bind(id).run()).rejects.toThrow();
+    await expect(env.DB.prepare("DELETE FROM audit_log WHERE id = ?").bind(id).run()).rejects.toThrow();
   });
 });

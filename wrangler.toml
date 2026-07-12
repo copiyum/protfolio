@@ -1,5 +1,5 @@
 name = "pf-admin"
-main = ".open-next/worker.js"
+main = "worker.ts"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
 
@@ -45,6 +45,5 @@ NEXT_PUBLIC_TURNSTILE_SITEKEY = "0x4AAAAAADuge60msITfVisd"
 # CF_ACCESS_AUD
 CF_ACCESS_TEAM_DOMAIN="floral-tree-4100.cloudflareaccess.com"
 # TURNSTILE_SECRET
-# R2_PRESIGN_SECRET
+# RATE_LIMIT_SECRET
 # ALERT_EMAIL_WEBHOOK
-# CRON_SECRET

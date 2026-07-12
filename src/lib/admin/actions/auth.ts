@@ -3,11 +3,13 @@ import { cookies } from "next/headers";
 import { prepareAudit, writeAudit } from "../audit";
 import { makeRegistrationOptions, verifyRegistration, makeAuthOptions, verifyAuth } from "../passkey";
 import { verifySession } from "../session";
+import { adminTextEncoder, b64urlDecode, b64urlEncode, hmacKey } from "../crypto";
 import { consume, isBlocked, reset } from "../ratelimit";
 import { alert } from "../alerts";
 import { verifyTurnstile } from "../turnstile";
 import { createAuthGuard } from "../auth-guard";
 import { adminActionError } from "./result";
+import { assertStrongSecret } from "@/lib/security";
 import {
   ADMIN_COOKIE_NAME as COOKIE_NAME,
   ADMIN_SESSION_TTL_MS as SESSION_TTL_MS,
@@ -21,8 +23,7 @@ import {
 type AdminEnv = ActionAdminEnv & { TURNSTILE_SECRET: string };
 
 function requireTurnstileSecret(env: ActionAdminEnv): string {
-  if (!env.TURNSTILE_SECRET) throw new Error("Turnstile is not configured");
-  return env.TURNSTILE_SECRET;
+  return assertStrongSecret("TURNSTILE_SECRET", env.TURNSTILE_SECRET);
 }
 
 // Registration flows:
@@ -35,6 +36,50 @@ function requireTurnstileSecret(env: ActionAdminEnv): string {
 //                 /admin/passkeys/register (gated by middleware).
 export type RegistrationMode = "bootstrap" | "add";
 type AdminDataResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
+type RegistrationChallenge = {
+  challenge: string;
+  mode: RegistrationMode;
+  sessionId: string | null;
+  expiresAt: number;
+};
+
+async function signRegistrationChallenge(payload: RegistrationChallenge, secret: string): Promise<string> {
+  const body = b64urlEncode(JSON.stringify(payload));
+  const mac = await crypto.subtle.sign("HMAC", await hmacKey(secret, ["sign"]), adminTextEncoder.encode(body));
+  return `${body}.${b64urlEncode(mac)}`;
+}
+
+async function verifyRegistrationChallenge(value: string, secret: string): Promise<RegistrationChallenge | null> {
+  const [body, signature] = value.split(".");
+  if (!body || !signature) return null;
+  let given: Uint8Array;
+  try {
+    given = b64urlDecode(signature);
+  } catch {
+    return null;
+  }
+  const valid = await crypto.subtle.verify(
+    "HMAC",
+    await hmacKey(secret, ["verify"]),
+    given.slice().buffer as ArrayBuffer,
+    adminTextEncoder.encode(body),
+  );
+  if (!valid) return null;
+  try {
+    const payload = JSON.parse(new TextDecoder().decode(b64urlDecode(body))) as RegistrationChallenge;
+    if (
+      typeof payload.challenge !== "string"
+      || (payload.mode !== "bootstrap" && payload.mode !== "add")
+      || (payload.sessionId !== null && typeof payload.sessionId !== "string")
+      || typeof payload.expiresAt !== "number"
+      || payload.expiresAt < Date.now()
+    ) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
 
 async function dataAction<T>(fn: () => Promise<T>): Promise<AdminDataResult<T>> {
   try {
@@ -60,7 +105,15 @@ function validatePasskeyName(value: FormDataEntryValue | null): string {
 }
 
 export async function beginRegistration(mode: RegistrationMode = "add") {
-  const auth = mode === "bootstrap" ? await requireCfAccessForAction() : await requireActionAdmin();
+  let auth: Awaited<ReturnType<typeof requireCfAccessForAction>>;
+  let sessionId: string | null = null;
+  if (mode === "bootstrap") {
+    auth = await requireCfAccessForAction();
+  } else {
+    const admin = await requireActionAdmin({ fresh: true });
+    auth = admin;
+    sessionId = admin.session.sessionId ?? null;
+  }
   const env = auth.env as AdminEnv;
   if (mode === "bootstrap") {
     // Advisory check — the atomic insert in completeRegistration is the
@@ -68,8 +121,14 @@ export async function beginRegistration(mode: RegistrationMode = "add") {
     await assertBootstrapPossible(env);
   }
   const opts = await makeRegistrationOptions();
+  if (mode === "add" && !sessionId) throw new Error("Registration requires an active stored session");
   const jar = await cookies();
-  jar.set("pf_reg_challenge", opts.challenge, {
+  jar.set("pf_reg_challenge", await signRegistrationChallenge({
+    challenge: opts.challenge,
+    mode,
+    sessionId,
+    expiresAt: Date.now() + 300_000,
+  }, env.ADMIN_COOKIE_SECRET), {
     httpOnly: true,
     secure: true,
     sameSite: "strict",
@@ -86,26 +145,29 @@ export async function beginRegistrationAction(mode: RegistrationMode = "add") {
 export async function completeRegistration(formData: FormData, mode: RegistrationMode = "add") {
   let auth: Awaited<ReturnType<typeof requireCfAccessForAction>>;
   let actorCredentialId: string | undefined;
+  let registrationSessionId: string | null = null;
   if (mode === "bootstrap") {
     auth = await requireCfAccessForAction({ write: true });
   } else {
-    const admin = await requireActionAdmin({ write: true });
+    const admin = await requireActionAdmin({ write: true, fresh: true });
     auth = admin;
     actorCredentialId = admin.credentialId;
+    registrationSessionId = admin.session.sessionId ?? null;
   }
   const env = auth.env as AdminEnv;
   const jar = await cookies();
-  const ip = auth.meta.ip;
+  const clientIp = auth.meta.ip;
+  const auditIp = auth.meta.storageIp;
   const ua = auth.meta.ua;
 
   // L5 — Turnstile (before rate-limit so bot failures don't consume ceremony slots).
   const turnstileToken = formData.get("cf-turnstile-response") as string | null;
-  const ts = await verifyTurnstile(turnstileToken, ip, requireTurnstileSecret(env), {
+  const ts = await verifyTurnstile(turnstileToken, clientIp, requireTurnstileSecret(env), {
     action: "register",
     hostname: auth.meta.host,
   });
   if (!ts.ok) {
-    await writeAudit(env.DB, { action: "turnstile_failed", targetTable: "passkeys", ip, ua, diff: { stage: "register", reason: ts.reason } });
+    await writeAudit(env.DB, { action: "turnstile_failed", targetTable: "passkeys", ip: auditIp, ua, diff: { stage: "register", reason: ts.reason } });
     throw new Error("Bot challenge failed");
   }
 
@@ -114,9 +176,16 @@ export async function completeRegistration(formData: FormData, mode: Registratio
   if (mode === "bootstrap") await assertBootstrapPossible(env);
   const responseStr = formData.get("response") as string;
   const name = validatePasskeyName(formData.get("name"));
-  const challenge = jar.get("pf_reg_challenge")?.value;
-  if (!challenge) throw new Error("Registration challenge expired");
-  const verified = await verifyRegistration(JSON.parse(responseStr), challenge);
+  const challengeCookie = jar.get("pf_reg_challenge")?.value;
+  const ceremony = challengeCookie
+    ? await verifyRegistrationChallenge(challengeCookie, env.ADMIN_COOKIE_SECRET)
+    : null;
+  if (
+    !ceremony
+    || ceremony.mode !== mode
+    || ceremony.sessionId !== registrationSessionId
+  ) throw new Error("Registration challenge expired or belongs to another session");
+  const verified = await verifyRegistration(JSON.parse(responseStr), ceremony.challenge);
   if (!verified.verified) throw new Error("Registration failed");
   const reg = verified.registrationInfo;
   if (!reg) throw new Error("No registration info");
@@ -141,7 +210,7 @@ export async function completeRegistration(formData: FormData, mode: Registratio
     targetTable: "passkeys",
     targetId: credentialId,
     actorCredentialId: actorCredentialId ?? credentialId,
-    ip,
+    ip: auditIp,
     ua,
   });
   const result = mode === "bootstrap"
@@ -195,23 +264,24 @@ export async function completeLogin(formData: FormData) {
   const { env, meta } = await requireCfAccessForAction({ write: true });
   const adminEnv = env as AdminEnv;
   const jar = await cookies();
-  const ip = meta.ip;
+  const clientIp = meta.ip;
+  const auditIp = meta.storageIp;
   const ua = meta.ua;
 
   // L5 — Turnstile (before rate-limit so bot failures don't consume ceremony slots).
   const turnstileToken = formData.get("cf-turnstile-response") as string | null;
-  const ts = await verifyTurnstile(turnstileToken, ip, requireTurnstileSecret(adminEnv), {
+  const ts = await verifyTurnstile(turnstileToken, clientIp, requireTurnstileSecret(adminEnv), {
     action: "login",
     hostname: meta.host,
   });
   if (!ts.ok) {
-    await writeAudit(env.DB, { action: "turnstile_failed", targetTable: "sessions", ip, ua, diff: { stage: "login", reason: ts.reason } });
+    await writeAudit(env.DB, { action: "turnstile_failed", targetTable: "sessions", ip: auditIp, ua, diff: { stage: "login", reason: ts.reason } });
     throw new Error("Bot challenge failed");
   }
 
-  const failureKey = `ip:${ip}:/admin/login`;
+  const failureKey = `${auditIp}:/admin/login`;
   if (await isBlocked(env.DB, failureKey, 5, 3600)) {
-    await alert(env, "Admin login lockout", `IP ${ip} locked for 1h after 5 failed attempts`);
+    await alert(env, "Admin login lockout", `${auditIp} locked for 1h after 5 failed attempts`);
     throw new Error("Too many failed attempts. Wait 1 hour and try again.");
   }
 
@@ -248,7 +318,7 @@ export async function completeLogin(formData: FormData) {
         action: "passkey_clone_detected",
         targetTable: "passkeys",
         targetId: passkey.credential_id,
-        ip,
+        ip: auditIp,
         ua,
       });
       await env.DB.batch([
@@ -269,7 +339,7 @@ export async function completeLogin(formData: FormData) {
   } catch (e) {
     await consume(env.DB, failureKey, 5, 3600);
     if (await isBlocked(env.DB, failureKey, 5, 3600)) {
-      await alert(env, "Admin login lockout", `IP ${ip} locked for 1h after 5 failed attempts`);
+      await alert(env, "Admin login lockout", `${auditIp} locked for 1h after 5 failed attempts`);
     } else {
       const row = await env.DB.prepare("SELECT count FROM rate_limits WHERE scope_key = ?").bind(failureKey).first<{ count: number }>();
       const remaining = Math.max(0, 5 - (row?.count ?? 0));
@@ -289,7 +359,7 @@ export async function completeLogin(formData: FormData) {
     maxAge: 0,
   });
   await issueSession(passkeyCredentialId, adminEnv, meta);
-  await writeAudit(env.DB, { action: "login_success", actorCredentialId: passkeyCredentialId, ip, ua });
+  await writeAudit(env.DB, { action: "login_success", actorCredentialId: passkeyCredentialId, ip: auditIp, ua });
 
   // Open redirect guard
   const next = formData.get("next") as string | null;

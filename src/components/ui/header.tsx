@@ -33,13 +33,18 @@ export default function Header({ items }: { items: NavItem[] }) {
         >
           Sarang
         </Link>
-        <nav className="flex items-center gap-5 text-base md:text-base">
+        <nav aria-label="Primary" className="flex items-center gap-5 text-base md:text-base">
           {items.map((item) => (
-            <Link key={item.id} href={item.href} className="nav-link opacity-80 hover:opacity-100">
+            <Link
+              key={item.id}
+              href={item.href}
+              aria-current={pathname === item.href ? "page" : undefined}
+              className="nav-link opacity-80 hover:opacity-100"
+            >
               {item.label}
             </Link>
           ))}
-          <ThemeToggleButton className="size-8 p-1.5 bg-transparent" />
+          <ThemeToggleButton className="size-10 p-2 bg-transparent" />
         </nav>
       </div>
     </header>

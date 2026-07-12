@@ -65,6 +65,9 @@ check_json() {
 check_page "/" "Home" "Sarang"
 check_page "/projects" "Projects" "project"
 check_page "/blog" "Blog" "blog"
+check_page "/blog/building-this-site" "Blog post" "Building this site"
+check_page "/blog/motion-paths" "Blog post" "plane that faces"
+check_page "/blog/hydration-traps" "Blog post" "Hydration"
 check_page "/privacy" "Privacy" "privacy"
 check_page "/visitors" "Visitors" "visitor"
 

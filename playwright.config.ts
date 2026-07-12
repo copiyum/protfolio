@@ -21,6 +21,14 @@ export default defineConfig({
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
-    env: { ...process.env, PLAYWRIGHT_TEST: "1" },
+    env: {
+      ...process.env,
+      PLAYWRIGHT_TEST: "1",
+      ADMIN_COOKIE_SECRET: "playwright-admin-key-7mQ2vN9xK4pR6sT8",
+      RATE_LIMIT_SECRET: "playwright-rate-key-9vN4xQ2mL7pR8sT6",
+      TURNSTILE_SECRET: "playwright-turnstile-key-5kR8vN2mQ7pT9xS4",
+      CF_ACCESS_AUD: "playwright-audience",
+      CF_ACCESS_TEAM_DOMAIN: "playwright.cloudflareaccess.com",
+    },
   },
 });

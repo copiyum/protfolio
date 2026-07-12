@@ -14,4 +14,5 @@ bucket_name = "pf-admin-assets-test"
 
 [vars]
 NODE_ENV = "test"
-TURNSTILE_SECRET = "test-turnstile-secret"
+TURNSTILE_SECRET = "turnstile-test-key-9vN4xQ2mL7pR8sT6"
+RATE_LIMIT_SECRET = "rate-limit-test-key-7mQ2vN9xK4pR6sT8"

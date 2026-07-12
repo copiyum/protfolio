@@ -1,21 +1,26 @@
-import React from "react";
+import Image from "next/image";
 
 interface Props {
-  /** Monochrome SVG markup (fill="currentColor"). */
+  /** Sanitized SVG markup rendered in an isolated image context. */
   svgContent?: string;
   color?: string;
   size?: number;
 }
 
-// Renders trusted, developer-authored monochrome SVG and tints it via `color`
-// (the SVG inherits it through currentColor). Sizing is handled by the
-// `.tech-icon svg` rule in globals.css.
 export default function TechIcon({ svgContent, color, size = 28 }: Props) {
+  const tintedSvg = svgContent?.replaceAll("currentColor", color ?? "#9ca3af");
+  const source = tintedSvg
+    ? `data:image/svg+xml;charset=utf-8,${encodeURIComponent(tintedSvg)}`
+    : null;
+
   return (
     <div
       className="tech-icon"
       style={{ color, width: size, height: size, display: "inline-block", lineHeight: 0 }}
-      dangerouslySetInnerHTML={{ __html: svgContent ?? "" }}
-    />
+    >
+      {source ? (
+        <Image src={source} alt="" aria-hidden width={size} height={size} unoptimized />
+      ) : null}
+    </div>
   );
 }

@@ -23,12 +23,14 @@ const NoteCard = React.memo(function NoteCard({
   index,
   shuffling,
   onDrag,
+  onNudge,
   onRotate,
 }: {
   note: Note;
   index: number;
   shuffling: boolean;
-  onDrag: (id: string, event: React.MouseEvent<HTMLDivElement>) => void;
+  onDrag: (id: string, event: React.PointerEvent<HTMLDivElement>) => void;
+  onNudge: (id: string, dx: number, dy: number) => void;
   onRotate: (id: string) => void;
 }) {
   const style: React.CSSProperties = {
@@ -40,15 +42,32 @@ const NoteCard = React.memo(function NoteCard({
   const imageSrc = note.imageDataUrl ?? note.imageUrl;
 
   return (
-    <div className={`${styles.card} ${shuffling ? styles.cardShuffling : ""}`} style={style} onMouseDown={(event)=>onDrag(note.id, event)}>
+    <div
+      className={`${styles.card} ${shuffling ? styles.cardShuffling : ""}`}
+      style={style}
+      role="group"
+      tabIndex={0}
+      aria-label={`Doodle by ${note.name || "unknown"}. Use arrow keys to move it.`}
+      onPointerDown={(event)=>onDrag(note.id, event)}
+      onKeyDown={(event) => {
+        const amount = event.shiftKey ? 5 : 2;
+        const moves: Record<string, [number, number]> = {
+          ArrowLeft: [-amount, 0], ArrowRight: [amount, 0], ArrowUp: [0, -amount], ArrowDown: [0, amount],
+        };
+        const move = moves[event.key];
+        if (!move) return;
+        event.preventDefault();
+        onNudge(note.id, move[0], move[1]);
+      }}
+    >
       <div className={styles.toolbar}>
-        <button className={styles.iconBtn} title="Shuffle angle" onMouseDown={(event)=>event.stopPropagation()} onClick={(event)=>{event.stopPropagation(); onRotate(note.id);}}>↻</button>
+        <button className={styles.iconBtn} aria-label={`Rotate doodle by ${note.name || "unknown"}`} onPointerDown={(event)=>event.stopPropagation()} onClick={(event)=>{event.stopPropagation(); onRotate(note.id);}}>↻</button>
       </div>
       <div className={styles.cardInner}>
         <div className={styles.drawPreview} style={{ borderBottomColor: note.color }}>
           {imageSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={imageSrc} alt="note" draggable={false} onDragStart={(event)=>event.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", borderTopLeftRadius: 10, borderTopRightRadius: 10 }} />
+            <img src={imageSrc} alt={`Doodle by ${note.name || "unknown"}`} draggable={false} onDragStart={(event)=>event.preventDefault()} style={{ width: "100%", height: "100%", objectFit: "contain", borderTopLeftRadius: 10, borderTopRightRadius: 10 }} />
           ) : null}
         </div>
         <div className={styles.meta}>
@@ -70,6 +89,8 @@ export default function VisitorsBoard({
   turnstileBypass?: boolean;
 }) {
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
+  const openerRef = useRef<HTMLButtonElement | null>(null);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [isModalOpen, setModalOpen] = useState(false);
   const [isModalVisible, setModalVisible] = useState(false);
@@ -94,29 +115,15 @@ export default function VisitorsBoard({
   }, [notes]);
 
   useEffect(() => {
-    if (!mounted) return;
-    let cancelled = false;
-    fetch("/api/visitor-notes", { cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) return;
-        const payload = await response.json() as { notes?: Note[] };
-        if (!cancelled && Array.isArray(payload.notes)) setNotes(payload.notes);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [mounted]);
-
-  useEffect(() => {
     return () => {
       if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
     };
   }, []);
 
   // Drag logic per card
-  const onDrag = useCallback((id: string, e: React.MouseEvent<HTMLDivElement>) => {
+  const onDrag = useCallback((id: string, e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault(); // stop native text-selection / image drag while moving the card
+    if (e.button !== 0) return;
     const board = boardRef.current; if (!board) return;
     const card = e.currentTarget;
     const rect = board.getBoundingClientRect();
@@ -125,7 +132,7 @@ export default function VisitorsBoard({
     const orig = { x: note.x, y: note.y };
     let latest = orig;
 
-    const onMove = (ev: MouseEvent) => {
+    const onMove = (ev: PointerEvent) => {
       const dx = ev.clientX - startX; const dy = ev.clientY - startY;
       const nx = orig.x + (dx/rect.width)*100;
       const ny = orig.y + (dy/rect.height)*100;
@@ -134,12 +141,22 @@ export default function VisitorsBoard({
       card.style.top = `${latest.y}%`;
     };
     const onUp = () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
       setNotes(prev => prev.map(n => n.id===id ? { ...n, x: latest.x, y: latest.y } : n));
     };
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  }, []);
+
+  const nudge = useCallback((id: string, dx: number, dy: number) => {
+    setNotes((prev) => prev.map((note) => note.id === id ? {
+      ...note,
+      x: clampPercent(note.x + dx),
+      y: clampPercent(note.y + dy),
+    } : note));
   }, []);
 
   const shuffle = useCallback(() => {
@@ -172,8 +189,45 @@ export default function VisitorsBoard({
     if (modalTimerRef.current) clearTimeout(modalTimerRef.current);
     modalTimerRef.current = setTimeout(() => {
       setModalOpen(false);
+      openerRef.current?.focus();
     }, reducedMotion ? 0 : MODAL_EXIT_MS);
   }, [reducedMotion]);
+
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const frame = requestAnimationFrame(() => {
+      dialogRef.current?.querySelector<HTMLElement>("button, input, textarea, [tabindex]:not([tabindex='-1'])")?.focus();
+    });
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeModal();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), input:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      )).filter((element) => !element.hasAttribute("hidden"));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [closeModal, isModalOpen]);
 
   const submit = async () => {
     if (isSubmitting) return;
@@ -224,6 +278,7 @@ export default function VisitorsBoard({
     <div>
       <div className="mb-5 flex items-center gap-4">
         <button
+          ref={openerRef}
           className="px-4 py-2 rounded-lg bg-foreground text-background hover:opacity-90 hover:scale-[1.03] active:scale-95 transition-[opacity,transform] duration-[var(--motion-micro)] ease-[var(--ease-standard)] text-sm font-medium flex items-center gap-2"
           onClick={openModal}
         >
@@ -242,7 +297,7 @@ export default function VisitorsBoard({
           Shuffle
         </button>
       </div>
-      <div ref={boardRef} className={styles.board}>
+      <div ref={boardRef} className={styles.board} aria-label="Visitor doodle board">
         <div className={styles.gridBg} />
         <div className={styles.empty} data-hidden={visibleNotes.length > 0 ? "true" : undefined} aria-hidden={visibleNotes.length > 0}>
             <div className={styles.ghostRow} aria-hidden>
@@ -253,23 +308,28 @@ export default function VisitorsBoard({
             <p className={styles.emptyText}>Be the first to leave a doodle.</p>
         </div>
         {visibleNotes.map((note, index) => (
-          <NoteCard key={note.id} note={note} index={index} shuffling={shuffling} onDrag={onDrag} onRotate={rotate} />
+          <NoteCard key={note.id} note={note} index={index} shuffling={shuffling} onDrag={onDrag} onNudge={nudge} onRotate={rotate} />
         ))}
       </div>
 
       {isModalOpen && mounted && createPortal(
         <div
           className={`${styles.modalBackdrop} ${isModalVisible ? styles.modalBackdropOpen : ""}`}
-          role="dialog"
-          aria-modal
+          role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeModal();
           }}
         >
-          <div className={styles.modal}>
+          <div
+            ref={dialogRef}
+            className={styles.modal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="visitor-note-title"
+          >
             <div className={styles.modalHeader}>
-              <div className="text-sm opacity-80">Leave a note</div>
-              <button className="px-2 py-1 text-xs rounded-md border" onClick={closeModal}>Close</button>
+              <h2 id="visitor-note-title" className="text-sm opacity-80">Leave a note</h2>
+              <button className="px-2 py-1 text-xs rounded-md border" onClick={closeModal} aria-label="Close visitor note dialog">Close</button>
             </div>
             <div className={styles.modalBody}>
               {/* Color Picker Section */}
@@ -286,9 +346,10 @@ export default function VisitorsBoard({
                   <div className="flex items-center gap-1">
                     {/* Undo */}
                     <button 
+                      type="button"
                       className="flex h-8 w-8 items-center justify-center rounded-md border bg-card/50 hover:bg-card transition-colors"
                       onClick={()=>drawingRef.current?.undo()}
-                      title="Undo"
+                      aria-label="Undo drawing stroke"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -296,9 +357,10 @@ export default function VisitorsBoard({
                     </button>
                     {/* Redo */}
                     <button 
+                      type="button"
                       className="flex h-8 w-8 items-center justify-center rounded-md border bg-card/50 hover:bg-card transition-colors"
                       onClick={()=>drawingRef.current?.redo()}
-                      title="Redo"
+                      aria-label="Redo drawing stroke"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" />
@@ -306,13 +368,22 @@ export default function VisitorsBoard({
                     </button>
                     {/* Clear */}
                     <button 
+                      type="button"
                       className="flex h-8 w-8 items-center justify-center rounded-md border bg-card/50 hover:bg-card transition-colors"
                       onClick={()=>drawingRef.current?.clear()}
-                      title="Clear"
+                      aria-label="Clear drawing"
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
+                    </button>
+                    <button
+                      type="button"
+                      className="flex h-8 w-8 items-center justify-center rounded-md border bg-card/50 hover:bg-card transition-colors"
+                      onClick={() => drawingRef.current?.addMark()}
+                      aria-label="Add a mark without drawing"
+                    >
+                      <span className="size-2 rounded-full bg-current" aria-hidden />
                     </button>
                   </div>
 
@@ -324,6 +395,7 @@ export default function VisitorsBoard({
                       </svg>
                       <div className="relative w-20">
                         <input 
+                          aria-label="Brush size"
                           type="range" 
                           min={1} 
                           max={24} 
@@ -337,11 +409,13 @@ export default function VisitorsBoard({
 
                     {/* Eraser Toggle */}
                     <button 
+                      type="button"
                       className={`flex h-8 w-8 items-center justify-center rounded-md border transition-colors ${
                         erase ? 'bg-foreground text-background' : 'bg-card/50 hover:bg-card'
                       }`}
                       onClick={()=>setErase((v)=>!v)}
-                      title="Eraser"
+                      aria-label="Eraser"
+                      aria-pressed={erase}
                     >
                       <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.5 3.5L20.5 7.5L8.5 19.5L4.5 15.5L16.5 3.5Z M16.5 3.5L12.5 7.5 M20.5 7.5L16.5 11.5" />
@@ -356,19 +430,21 @@ export default function VisitorsBoard({
 
               {/* Form Section */}
               <div className="grid grid-cols-[auto_1fr] gap-3 items-center">
-                <label className="text-sm font-medium opacity-80">Name</label>
+                <label htmlFor="visitor-name" className="text-sm font-medium opacity-80">Name</label>
                 <input
+                  id="visitor-name"
                   value={draftName}
                   onChange={(e)=>setDraftName(e.target.value)}
-                  maxLength={80}
+                  maxLength={40}
                   className="rounded-lg border bg-card/30 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]/40"
                   placeholder="Your name"
                 />
-                <label className="text-sm font-medium opacity-80">Message</label>
+                <label htmlFor="visitor-message" className="text-sm font-medium opacity-80">Message</label>
                 <textarea
+                  id="visitor-message"
                   value={draftMsg}
                   onChange={(e)=>setDraftMsg(e.target.value)}
-                  maxLength={220}
+                  maxLength={140}
                   className="rounded-lg border bg-card/30 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[color:var(--accent)]/40"
                   placeholder="Leave a message..."
                   rows={2}

@@ -22,9 +22,12 @@ export default function BlogList({ posts }: { posts: Post[] }) {
 
   return (
     <>
-      <label className="mb-4 flex items-center gap-2 rounded-none border border-[color:var(--foreground)]/10 bg-transparent px-3 py-2">
+      <label htmlFor="blog-search" className="mb-4 flex items-center gap-2 rounded-none border border-[color:var(--foreground)]/10 bg-transparent px-3 py-2">
+        <span className="sr-only">Search posts</span>
         <MagnifyingGlassIcon className="h-4 w-4 text-[color:var(--foreground)]/40" />
         <input
+          id="blog-search"
+          type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search posts..."
@@ -33,8 +36,8 @@ export default function BlogList({ posts }: { posts: Post[] }) {
       </label>
 
       {filtered.length === 0 ? (
-        <p className="py-10 text-center text-sm text-[color:var(--foreground)]/45">
-          No posts match &quot;{q}&quot;.
+        <p className="py-10 text-center text-sm text-[color:var(--foreground)]/45" role="status">
+          {posts.length === 0 ? "No posts have been published yet." : <>No posts match &quot;{q}&quot;.</>}
         </p>
       ) : (
         <div className="overflow-hidden rounded-none border border-[color:var(--foreground)]/10 bg-transparent divide-y divide-[color:var(--foreground)]/10">

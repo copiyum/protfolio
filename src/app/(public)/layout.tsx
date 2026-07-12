@@ -1,8 +1,6 @@
 import { ThemeProvider } from "next-themes";
 import Link from "next/link";
-import GradientBackdrop from "@/components/ui/gradient-backdrop";
 import Header from "@/components/ui/header";
-import LoadingBeam from "@/components/ui/loading-beam";
 import ScrollToTop from "@/components/ui/scroll-to-top";
 import SelectionTooltip from "@/components/ui/selection-tooltip";
 import { getPublicLayoutData } from "@/lib/admin/read";
@@ -14,8 +12,6 @@ export default async function PublicLayout({ children }: { children: React.React
 
   return (
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <GradientBackdrop />
-      <LoadingBeam />
       <Header items={navItems} />
       <main className="pt-[3.75rem]">{children}</main>
       <footer className="relative z-10 mx-auto max-w-xl px-6 pb-10 pt-4 text-xs text-[color:var(--foreground)]/45">

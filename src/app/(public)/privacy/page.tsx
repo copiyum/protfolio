@@ -15,7 +15,7 @@ export default function PrivacyPage() {
           </p>
           <h1 className="text-3xl font-semibold tracking-tight">Privacy</h1>
           <p className="text-sm text-[color:var(--foreground)]/55">
-            Last updated: July 4, 2026
+            Last updated: July 12, 2026
           </p>
         </header>
 
@@ -64,8 +64,11 @@ export default function PrivacyPage() {
           </h2>
           <p>
             Admin-only areas use Cloudflare Access, passkeys, sessions, rate limiting, and audit
-            logging. Audit logs can include credential identifiers, IP address, user agent, action
-            names, target records, timestamps, and change details.
+            logging. The site converts client IP addresses into keyed identifiers that rotate
+            monthly before storing session, audit, or rate-limit records. Audit records can also
+            include credential identifiers, user agents, action names, target records, timestamps,
+            and change details. D1 audit records are retained for 90 days and archived daily to R2.
+            Expired sessions and stale rate-limit counters are removed by the same daily job.
           </p>
         </section>
 

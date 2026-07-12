@@ -35,6 +35,7 @@ const workersProject = defineProject({
 const unitProject = defineProject({
   resolve: {
     alias: {
+      "@": resolve("./src"),
       "\\.(css|module\\.css)$": resolve("./vitest.css.stub"),
     },
   },

@@ -1,173 +1,40 @@
 "use client";
-import { motion } from "framer-motion";
+
 import { useTheme } from "next-themes";
 import { useCallback } from "react";
-
+import { MoonIcon, SunIcon } from "@heroicons/react/24/outline";
 import { cn } from "@/lib/utils";
 import useHasMounted from "@/hooks/use-has-mounted";
+import useReducedMotion from "@/hooks/use-reduced-motion";
 
-const STYLE_ID = "theme-transition-styles";
-
-const injectStyles = (css: string) => {
-  if (typeof document === "undefined") return;
-  let el = document.getElementById(STYLE_ID) as HTMLStyleElement | null;
-  if (!el) {
-    el = document.createElement("style");
-    el.id = STYLE_ID;
-    document.head.appendChild(el);
-  }
-  el.textContent = css;
-};
-
-// circle + blur, origin at click point (percent of viewport)
-const buildCircleBlurCss = (xPct: number, yPct: number) => {
-  const pos = `${xPct}% ${yPct}%`;
-  return `
- ::view-transition-group(root) {
-  animation-duration: 1s;
-  animation-timing-function: var(--expo-out);
-}
-
-::view-transition-new(root) {
-  animation-name: reveal-light-blur;
-}
-
-::view-transition-old(root),
-.dark::view-transition-old(root) {
-  animation: hide-old 1s var(--expo-out);
-  z-index: -1;
-}
-.dark::view-transition-new(root) {
-  animation-name: reveal-dark-blur;
-}
-
-@keyframes reveal-dark-blur {
-  from { clip-path: circle(0% at ${pos}); filter: blur(8px); }
-  50%  { filter: blur(4px); }
-  to   { clip-path: circle(200% at ${pos}); filter: blur(0); }
-}
-
-@keyframes reveal-light-blur {
-  from { clip-path: circle(0% at ${pos}); filter: blur(8px); }
-  50%  { filter: blur(4px); }
-  to   { clip-path: circle(200% at ${pos}); filter: blur(0); }
-}
-
-@keyframes hide-old {
-  from { clip-path: circle(0% at ${pos}); }
-  to   { clip-path: circle(200% at ${pos}); }
-}
-`;
-};
-
-export const ThemeToggleButton = ({
-  className = "",
-}: {
-  className?: string;
-}) => {
+export const ThemeToggleButton = ({ className = "" }: { className?: string }) => {
   const { setTheme, resolvedTheme } = useTheme();
   const mounted = useHasMounted();
+  const reducedMotion = useReducedMotion();
+  const isDark = mounted && resolvedTheme === "dark";
 
-  // suppressHydrationWarning: skip until mounted so the SVG renders the correct
-  // dark/light state on first paint without flicker. Before mount, default to
-  // the light-state numeric values explicitly so framer-motion doesn't pass
-  // `false` to the SVG `r` attribute (rejected by the SVG parser).
-  const sunR = 8;
-  const sunCyOffset = 0;
-  const sunCxOffset = 0;
-  const isDark = mounted ? resolvedTheme === "dark" : false;
-  const circleR = isDark ? 10 : sunR;
-  const sunTranslateY = isDark ? 10 : sunCyOffset;
-  const sunTranslateX = isDark ? -12 : sunCxOffset;
-  const clipPosition = { y: sunTranslateY, x: sunTranslateX };
-  const sunState = {
-    rotate: isDark ? -100 : 0,
-    scale: isDark ? 0.5 : 1,
-    opacity: isDark ? 0 : 1,
-  };
+  const toggle = useCallback(() => {
+    const flip = () => setTheme(isDark ? "light" : "dark");
+    if (reducedMotion || !document.startViewTransition) {
+      flip();
+      return;
+    }
+    document.startViewTransition(flip);
+  }, [isDark, reducedMotion, setTheme]);
 
-  const toggle = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      // ponytail: button center in viewport % so circle expands from button.
-      const r = e.currentTarget.getBoundingClientRect();
-      const cx = r.left + r.width / 2;
-      const cy = r.top + r.height / 2;
-      const xPct = Math.max(0, Math.min(100, (cx / window.innerWidth) * 100));
-      const yPct = Math.max(0, Math.min(100, (cy / window.innerHeight) * 100));
-
-      injectStyles(buildCircleBlurCss(xPct, yPct));
-
-      const next = isDark ? "light" : "dark";
-      const flip = () => setTheme(next);
-
-      if (typeof document === "undefined" || !document.startViewTransition) {
-        flip();
-      } else {
-        document.startViewTransition(flip);
-      }
-
-      try {
-        const audio = new Audio("/assets/sounds/click-soft.mp3");
-        audio.volume = 0.5;
-        audio.play().catch(() => {});
-      } catch {}
-    },
-    [isDark, setTheme],
-  );
-
+  const Icon = isDark ? SunIcon : MoonIcon;
   return (
     <button
       type="button"
-      aria-label="Toggle theme"
+      aria-label={isDark ? "Use light theme" : "Use dark theme"}
       onClick={toggle}
       className={cn(
-        "rounded-full transition-all duration-300 active:scale-95",
+        "rounded-full bg-transparent transition-[color,transform] duration-200 active:scale-95 motion-reduce:transition-none",
         isDark ? "text-neutral-50" : "text-neutral-900",
         className,
       )}
     >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        aria-hidden="true"
-        fill="currentColor"
-        strokeLinecap="round"
-        viewBox="0 0 32 32"
-      >
-        <clipPath id="skiper-btn-2">
-          <motion.path
-            initial={clipPosition}
-            animate={clipPosition}
-            transition={{ ease: "easeInOut", duration: 0.35 }}
-            d="M0-5h30a1 1 0 0 0 9 13v24H0Z"
-          />
-        </clipPath>
-        <g clipPath="url(#skiper-btn-2)">
-          <motion.circle
-            initial={{ r: circleR }}
-            animate={{ r: circleR }}
-            transition={{ ease: "easeInOut", duration: 0.35 }}
-            cx="16"
-            cy="16"
-            r={circleR}
-          />
-          <motion.g
-            initial={sunState}
-            animate={sunState}
-            transition={{ ease: "easeInOut", duration: 0.35 }}
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <path d="M16 5.5v-4" />
-            <path d="M16 30.5v-4" />
-            <path d="M1.5 16h4" />
-            <path d="M26.5 16h4" />
-            <path d="m23.4 8.6 2.8-2.8" />
-            <path d="m5.7 26.3 2.9-2.9" />
-            <path d="m5.8 5.8 2.8 2.8" />
-            <path d="m23.4 23.4 2.9 2.9" />
-          </motion.g>
-        </g>
-      </svg>
+      <Icon className="size-full" aria-hidden />
     </button>
   );
 };

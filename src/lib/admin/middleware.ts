@@ -17,10 +17,10 @@ export function buildContentSecurityPolicy(pathname: string, nonce?: string): st
   const isDev = process.env.NODE_ENV === "development";
   const scriptSrc = (
     isDev
-      ? ["'self'", "'unsafe-eval'", "'unsafe-inline'", "https://challenges.cloudflare.com", "https://static.cloudflareinsights.com"]
+      ? ["'self'", "'unsafe-eval'", "'unsafe-inline'", "https://challenges.cloudflare.com"]
       : isAdmin
-        ? ["'self'", `'nonce-${effectiveNonce}'`, "https://challenges.cloudflare.com", "https://static.cloudflareinsights.com"]
-        : ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com", "https://static.cloudflareinsights.com"]
+        ? ["'self'", `'nonce-${effectiveNonce}'`, "https://challenges.cloudflare.com"]
+        : ["'self'", `'nonce-${effectiveNonce}'`, "https://challenges.cloudflare.com"]
   ).join(" ");
   return [
     `default-src 'self'`,

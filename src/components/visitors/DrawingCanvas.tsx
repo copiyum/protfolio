@@ -15,6 +15,7 @@ export type DrawingCanvasHandle = {
   clear: () => void;
   undo: () => void;
   redo: () => void;
+  addMark: () => void;
 };
 
 type Props = {
@@ -203,12 +204,28 @@ const DrawingCanvas = forwardRef<DrawingCanvasHandle, Props>(function DrawingCan
 
   const hasDrawing = () => strokes.length > 0 || !!currentStrokeRef.current;
 
-  useImperativeHandle(ref, () => ({ exportAsDataUrl, hasDrawing, clear, undo, redo }));
+  const addMark = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const x = canvas.clientWidth / 2;
+    const y = canvas.clientHeight / 2;
+    setStrokes((prev) => [...prev, {
+      color,
+      width: Math.max(width, 6),
+      erase: false,
+      points: [{ x: x - 1, y }, { x: x + 1, y }],
+    }]);
+    setRedoStack([]);
+  };
+
+  useImperativeHandle(ref, () => ({ exportAsDataUrl, hasDrawing, clear, undo, redo, addMark }));
 
   return (
     <div className={`relative ${className ?? ""}`.trim()}>
       <canvas
         ref={canvasRef}
+        role="img"
+        aria-label="Drawing canvas. Use a pointer or touch to draw; use the toolbar to undo, redo, or clear."
         onMouseDown={start}
         onMouseMove={move}
         onMouseUp={end}

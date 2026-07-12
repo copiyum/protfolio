@@ -1,9 +1,6 @@
-export { default as AnimatedStars } from "./animated-stars";
 export { default as ExpandIcon } from "./expand-icon";
-export { default as GradientBackdrop } from "./gradient-backdrop";
 export { default as Header } from "./header";
 export { default as HoldToSubmit } from "./hold-to-submit";
-export { default as LoadingBeam } from "./loading-beam";
 export { default as Reveal } from "./reveal";
 export { default as ScrollToTop } from "./scroll-to-top";
 export { default as SectionPanel } from "./section-panel";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-import { consume } from "@/lib/admin/ratelimit";
+import { enforcePublicRateLimit, type PublicRateLimitEnv } from "@/lib/public-rate-limit";
 
 export interface NowPlayingData {
   playing: boolean;
@@ -31,27 +31,12 @@ const PUBLIC_API_LIMIT = 120;
 const PUBLIC_API_WINDOW_SEC = 60;
 const ALBUM_ART_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
 
-async function getPublicApiDb(): Promise<D1Database | null> {
+async function getPublicApiEnv(): Promise<PublicRateLimitEnv> {
   try {
     const ctx = await getCloudflareContext({ async: true });
-    return (ctx.env as unknown as { DB?: D1Database }).DB ?? null;
+    return ctx.env as unknown as PublicRateLimitEnv;
   } catch {
-    return null;
-  }
-}
-
-async function enforcePublicRateLimit(request: Request, db: D1Database | null): Promise<Response | null> {
-  try {
-    if (!db) return null;
-    const ip = request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-    const ok = await consume(db, `public-api:${ip}:now-playing`, PUBLIC_API_LIMIT, PUBLIC_API_WINDOW_SEC);
-    if (ok) return null;
-    return NextResponse.json(
-      { error: "Too many requests" },
-      { status: 429, headers: { "Retry-After": String(PUBLIC_API_WINDOW_SEC) } },
-    );
-  } catch {
-    return null;
+    return {};
   }
 }
 
@@ -175,9 +160,10 @@ async function getAlbumArt(db: D1Database | null, artist: string, track: string)
 }
 
 export async function GET(request: Request) {
-  const db = await getPublicApiDb();
-  const limited = await enforcePublicRateLimit(request, db);
+  const env = await getPublicApiEnv();
+  const limited = await enforcePublicRateLimit(request, env, "now-playing", PUBLIC_API_LIMIT, PUBLIC_API_WINDOW_SEC);
   if (limited) return limited;
+  const db = env.DB ?? null;
 
   const apiKey = process.env.LASTFM_API_KEY;
   const username = process.env.LASTFM_USERNAME;

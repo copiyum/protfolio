@@ -1,4 +1,3 @@
-import AnimatedStars from "@/components/ui/animated-stars";
 import { getPosts } from "@/lib/admin/read";
 import BlogList from "./BlogList";
 
@@ -9,7 +8,6 @@ export default async function BlogPage() {
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
-      <AnimatedStars />
       <div className="relative z-10 mx-auto max-w-[550px] px-4 py-8">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight">Blog</h1>

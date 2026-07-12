@@ -1,3 +1,5 @@
+import { assertStrongSecret } from "@/lib/security";
+
 const enc = new TextEncoder();
 
 export { enc as adminTextEncoder };
@@ -20,7 +22,7 @@ export function b64urlDecode(value: string): Uint8Array {
 export async function hmacKey(secret: string, usages: KeyUsage[] = ["sign"]): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
-    enc.encode(secret),
+    enc.encode(assertStrongSecret("HMAC secret", secret)),
     { name: "HMAC", hash: "SHA-256" },
     false,
     usages,

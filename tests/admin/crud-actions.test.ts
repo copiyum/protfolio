@@ -13,7 +13,7 @@ function makeCrud(authCalls: unknown[], updatedTags: string[]) {
   const admin: ActionAdmin = {
     env: {
       DB: env.DB,
-      ADMIN_COOKIE_SECRET: "secret",
+      ADMIN_COOKIE_SECRET: "crud-admin-key-9vN4xQ2mL7pR8sT6cD5",
       CF_ACCESS_AUD: "aud",
       CF_ACCESS_TEAM_DOMAIN: "team.example.com",
     },
@@ -26,7 +26,7 @@ function makeCrud(authCalls: unknown[], updatedTags: string[]) {
       nonce: "nonce",
       freshAt: Date.now(),
     },
-    meta: { ip: "1.2.3.4", ua: "vitest" },
+    meta: { ip: "1.2.3.4", storageIp: "ip:test", ua: "vitest" },
     auditMeta,
     prepareAudit: (input) => prepareAudit(env.DB, { ...input, ...auditMeta }),
     writeAudit: (input) => writeAudit(env.DB, { ...input, ...auditMeta }),
@@ -57,7 +57,7 @@ function makeCrud(authCalls: unknown[], updatedTags: string[]) {
 describe("CRUD server action helper", () => {
   beforeEach(async () => {
     await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
-    await env.DB.exec("DELETE FROM audit_log; DELETE FROM posts;");
+    await env.DB.exec("DELETE FROM posts;");
   });
 
   it("creates posts with JSON/boolean coercion, audit, and tag invalidation", async () => {

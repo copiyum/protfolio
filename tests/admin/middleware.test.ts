@@ -7,7 +7,8 @@ describe("security headers", () => {
     const res = new Response("ok");
     const out = applySecurityHeaders(res, "/admin/posts");
     const h = out.headers;
-    expect(h.get("Content-Security-Policy")).toMatch(/script-src 'self' 'nonce-[^']+' https:\/\/challenges\.cloudflare\.com https:\/\/static\.cloudflareinsights\.com/);
+    expect(h.get("Content-Security-Policy")).toMatch(/script-src 'self' 'nonce-[^']+' https:\/\/challenges\.cloudflare\.com/);
+    expect(h.get("Content-Security-Policy")).not.toContain("static.cloudflareinsights.com");
     expect(h.get("Content-Security-Policy")).toMatch(/worker-src 'none'/);
     expect(h.get("Strict-Transport-Security")).toMatch(/max-age=63072000/);
     expect(h.get("X-Content-Type-Options")).toBe("nosniff");
@@ -23,7 +24,8 @@ describe("security headers", () => {
   it("frame-ancestors self on public", () => {
     const out = applySecurityHeaders(new Response("ok"), "/blog");
     expect(out.headers.get("Content-Security-Policy")).toMatch(/frame-ancestors 'self'/);
-    expect(out.headers.get("Content-Security-Policy")).toMatch(/script-src 'self' 'unsafe-inline'/);
+    expect(out.headers.get("Content-Security-Policy")).toMatch(/script-src 'self' 'nonce-[^']+'/);
+    expect(out.headers.get("Content-Security-Policy")?.match(/script-src[^;]+/)?.[0]).not.toContain("'unsafe-inline'");
     expect(out.headers.get("Content-Security-Policy")).toMatch(/worker-src 'self' blob:/);
     expect(out.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });
@@ -91,7 +93,7 @@ describe("admin IP rate limit (L5, replaces WAF)", () => {
 describe("requireAdmin", () => {
   const adminEnv = {
     DB: env.DB,
-    ADMIN_COOKIE_SECRET: "test-secret",
+    ADMIN_COOKIE_SECRET: "admin-cookie-key-9vN4xQ2mL7pR8sT6",
     CF_ACCESS_AUD: "test-aud",
     CF_ACCESS_TEAM_DOMAIN: "team.example.com",
   };

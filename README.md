@@ -15,9 +15,8 @@ Behind Cloudflare Access (email OTP) + Passkey session. Hand-rolled admin UI on 
    wrangler secret put CF_ACCESS_AUD           # CF Access app AUD tag
    wrangler secret put CF_ACCESS_TEAM_DOMAIN   # e.g. myteam.cloudflareaccess.com
    wrangler secret put TURNSTILE_SECRET
-   wrangler secret put R2_PRESIGN_SECRET
+   wrangler secret put RATE_LIMIT_SECRET       # 32+ random bytes; rotating IP fingerprints
    wrangler secret put ALERT_EMAIL_WEBHOOK     # optional
-   wrangler secret put CRON_SECRET             # for audit-snapshot cron
    ```
 3. Create remote D1 + R2 + apply schema:
    ```bash
@@ -85,4 +84,6 @@ npm run test:e2e      # playwright (requires dev server)
 
 See `docs/superpowers/specs/2026-07-02-backend-control-design.md` for full spec, and `docs/superpowers/plans/2026-07-02-backend-control.md` for implementation plan.
 
-OWASP Top 10 (2021) coverage: A01 access control (CF Access + passkey + requireAdmin per action), A02 crypto (HTTPS / HMAC-SHA256 / constant-time / `__Host-` prefix / no PII), A03 injection (D1 prepared statements / zod parse / no `dangerouslySetInnerHTML`), A04 insecure design (defense in depth / bootstrap via CF Access / counter regression = clone detection), A05 misconfig (CSP / HSTS / frame deny / nosniff / referrer / permissions / `wrangler secret put` only), A06 vulnerable components (OSV / Dependabot), A07 auth fail (passkey-only / origin check / rate limit / ≥2 passkeys / counter alerts), A08 integrity (audit log immutable / R2 snapshot / signed deploys), A09 logging (audit + alerts / 90d retention), A10 SSRF (no `fetch` from user URLs / protocol allowlist).
+OWASP Top 10 (2021) coverage: A01 access control (CF Access + passkey + fresh-auth action guards), A02 crypto (HTTPS / strong HMAC-SHA256 secrets / constant-time verification / `__Host-` prefix / keyed IP fingerprints), A03 injection (D1 prepared statements / zod parsing / isolated SVG image rendering), A04 insecure design (defense in depth / bootstrap guard / counter regression detection / atomic passkey minimum), A05 misconfig (nonce CSP / HSTS / frame deny / nosniff / referrer / permissions), A06 vulnerable components (OSV / Dependabot), A07 auth failures (passkey-only / origin checks / fail-closed rate limiting / two-passkey minimum), A08 integrity (retained audit rows deny update/delete; daily content-hashed R2 archives), A09 logging (audit alerts / scheduled snapshots / 90-day retention), A10 SSRF (HTTPS host allowlist / redirect revalidation / timeout and body limits).
+
+Audit maintenance runs from the Worker's daily `scheduled()` handler. Each run writes a unique, content-hashed gzip archive to R2, records a last-success marker, alerts on detected schedule gaps/failures, removes expired sessions and stale rate-limit counters, and removes D1 audit rows older than 90 days after archiving.

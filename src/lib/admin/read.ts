@@ -79,7 +79,8 @@ const getPostsCached = unstable_cache(
 
 export async function getPosts(): Promise<Post[]> {
   try {
-    return await getPostsCached();
+    const posts = await getPostsCached();
+    return posts.length > 0 ? posts : postsPlugin.fallback();
   } catch (e) {
     warnPublicRead("getPosts", e);
     return postsPlugin.fallback();

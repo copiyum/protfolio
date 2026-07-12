@@ -53,7 +53,7 @@ function adminContext(): ActionAdmin {
     env: {
       DB: env.DB,
       R2: env.R2,
-      ADMIN_COOKIE_SECRET: "secret",
+      ADMIN_COOKIE_SECRET: "visitor-admin-key-9vN4xQ2mL7pR8sT6",
       CF_ACCESS_AUD: "aud",
       CF_ACCESS_TEAM_DOMAIN: "team.example.com",
       TURNSTILE_SECRET: env.TURNSTILE_SECRET,
@@ -67,7 +67,7 @@ function adminContext(): ActionAdmin {
       nonce: "nonce",
       freshAt: Date.now(),
     },
-    meta: { ip: "1.2.3.4", ua: "vitest" },
+    meta: { ip: "1.2.3.4", storageIp: "ip:test", ua: "vitest" },
     auditMeta,
     prepareAudit: (input) => prepareAudit(env.DB, { ...input, ...auditMeta }),
     writeAudit: (input) => writeAudit(env.DB, { ...input, ...auditMeta }),
@@ -77,7 +77,7 @@ function adminContext(): ActionAdmin {
 describe("visitor notes", () => {
   beforeEach(async () => {
     await applyD1Migrations(env.DB, env.TEST_MIGRATIONS);
-    await env.DB.exec("DELETE FROM audit_log; DELETE FROM rate_limits; DELETE FROM visitor_notes;");
+    await env.DB.exec("DELETE FROM rate_limits; DELETE FROM visitor_notes;");
     await clearR2();
     vi.restoreAllMocks();
   });
@@ -159,6 +159,7 @@ describe("visitor notes", () => {
     expect(imageResponse.status).toBe(200);
     expect(imageResponse.headers.get("content-type")).toBe("image/png");
     expect(imageResponse.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(imageResponse.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
 
     const missing = await handleVisitorNoteImageGet(
       new Request("https://sarang.dev/api/visitor-notes/not-a-note/image"),
