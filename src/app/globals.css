@@ -207,6 +207,20 @@ body {
 	transform: scaleX(1);
 }
 
+.gradient-backdrop {
+	background: radial-gradient(
+		2000px 600px at 50% 0%,
+		hsla(220, 80%, 60%, 0.15),
+		transparent 70%
+	);
+	animation: hue-cycle 52s linear infinite;
+}
+@keyframes hue-cycle {
+	to {
+		filter: hue-rotate(360deg);
+	}
+}
+
 /* Equalizer bars for Now Playing */
 @keyframes eq-bar {
 	from {
@@ -241,6 +255,9 @@ body {
 		opacity: 1 !important;
 		transform: none !important;
 		filter: none !important;
+	}
+	.gradient-backdrop {
+		animation: none !important;
 	}
 	.motion-presence-enter {
 		animation: none !important;

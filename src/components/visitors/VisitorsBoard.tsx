@@ -24,14 +24,12 @@ const NoteCard = React.memo(function NoteCard({
   shuffling,
   onDrag,
   onNudge,
-  onRotate,
 }: {
   note: Note;
   index: number;
   shuffling: boolean;
   onDrag: (id: string, event: React.PointerEvent<HTMLDivElement>) => void;
   onNudge: (id: string, dx: number, dy: number) => void;
-  onRotate: (id: string) => void;
 }) {
   const style: React.CSSProperties = {
     left: `${note.x}%`,
@@ -60,9 +58,6 @@ const NoteCard = React.memo(function NoteCard({
         onNudge(note.id, move[0], move[1]);
       }}
     >
-      <div className={styles.toolbar}>
-        <button className={styles.iconBtn} aria-label={`Rotate doodle by ${note.name || "unknown"}`} onPointerDown={(event)=>event.stopPropagation()} onClick={(event)=>{event.stopPropagation(); onRotate(note.id);}}>↻</button>
-      </div>
       <div className={styles.cardInner}>
         <div className={styles.drawPreview} style={{ borderBottomColor: note.color }}>
           {imageSrc ? (
@@ -169,8 +164,6 @@ export default function VisitorsBoard({
     })));
     setTimeout(() => setShuffling(false), 600);
   }, []);
-
-  const rotate = useCallback((id: string) => setNotes(prev=>prev.map(x=>x.id===id?{...x, rotation: randomRotation()}:x)), []);
 
   // Modal handlers
   const openModal = () => {
@@ -308,7 +301,7 @@ export default function VisitorsBoard({
             <p className={styles.emptyText}>Be the first to leave a doodle.</p>
         </div>
         {visibleNotes.map((note, index) => (
-          <NoteCard key={note.id} note={note} index={index} shuffling={shuffling} onDrag={onDrag} onNudge={nudge} onRotate={rotate} />
+          <NoteCard key={note.id} note={note} index={index} shuffling={shuffling} onDrag={onDrag} onNudge={nudge} />
         ))}
       </div>
 

@@ -141,26 +141,6 @@
   -webkit-box-orient: vertical;
 }
 
-.toolbar {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  gap: 8px;
-  z-index: 2;
-}
-
-.iconBtn {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 8px;
-  border: 1px solid var(--card-border, rgba(255,255,255,0.1));
-  background: color-mix(in oklab, var(--background) 75%, var(--foreground) 25%);
-  color: var(--foreground);
-}
-
 .modalBackdrop {
   position: fixed;
   inset: 0;

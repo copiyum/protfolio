@@ -1,3 +1,4 @@
+import AnimatedStars from "@/components/ui/animated-stars";
 import IntroSection from "@/components/home/intro-section";
 import BentoBlock from "@/components/home/bento-block";
 import TechStack from "@/components/home/tech-stack";
@@ -21,6 +22,7 @@ export default async function Home() {
 
 	return (
 		<div className="relative min-h-[calc(100vh-3.5rem)]">
+			<AnimatedStars />
 
 			<main className="relative z-10 mx-auto max-w-[550px] px-2 pb-20">
 				<Reveal className="mt-10">

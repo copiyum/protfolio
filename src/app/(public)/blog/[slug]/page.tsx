@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "@heroicons/react/24/outline";
+import AnimatedStars from "@/components/ui/animated-stars";
 import { fallback } from "@/data/fallback";
 import { getPostBySlug } from "@/lib/admin/read";
 
@@ -33,6 +34,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
+      <AnimatedStars />
       <article className="relative z-10 mx-auto max-w-[640px] px-4 py-8">
         <Link
           href="/blog"
