@@ -4,7 +4,7 @@ import SectionPanel from "@/components/ui/section-panel";
 import ProjectItem from "@/components/home/project-item";
 import { getProjects } from "@/lib/admin/read";
 
-export const metadata: Metadata = { title: "Projects — Sarang" };
+export const metadata: Metadata = { title: "Projects" };
 export const revalidate = 300;
 
 export default async function ProjectsPage() {

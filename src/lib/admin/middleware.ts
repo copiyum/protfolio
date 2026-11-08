@@ -9,18 +9,26 @@ import {
 export { verifyCfAccessJwt };
 
 // security headers — applied to every response via Next.js middleware.ts.
-// Admin pages use a nonce CSP; middleware must also place that CSP on the
-// forwarded request so Next.js can add matching nonces to its bootstrap scripts.
+//
+// Admin pages use a per-request nonce CSP; middleware also places that CSP on
+// the forwarded request so Next.js adds matching nonces to its inline scripts.
+// That forces every render to be dynamic, which is fine for /admin.
+//
+// Public pages are statically rendered / ISR-cached, so one HTML document is
+// served to many visitors and cannot carry a per-request nonce. Next's inline
+// RSC/bootstrap scripts differ per page and per revalidation, so hashes aren't
+// practical either: public script-src allows 'unsafe-inline'. Deliberate
+// tradeoff — external scripts are still limited to 'self' + Turnstile, and the
+// public site renders no user-supplied HTML (visitor notes are text/images).
 export function buildContentSecurityPolicy(pathname: string, nonce?: string): string {
-  const effectiveNonce = nonce ?? crypto.randomUUID().replace(/-/g, "");
   const isAdmin = pathname.startsWith("/admin");
   const isDev = process.env.NODE_ENV === "development";
   const scriptSrc = (
     isDev
       ? ["'self'", "'unsafe-eval'", "'unsafe-inline'", "https://challenges.cloudflare.com"]
       : isAdmin
-        ? ["'self'", `'nonce-${effectiveNonce}'`, "https://challenges.cloudflare.com"]
-        : ["'self'", `'nonce-${effectiveNonce}'`, "https://challenges.cloudflare.com"]
+        ? ["'self'", `'nonce-${nonce ?? crypto.randomUUID().replace(/-/g, "")}'`, "https://challenges.cloudflare.com"]
+        : ["'self'", "'unsafe-inline'", "https://challenges.cloudflare.com"]
   ).join(" ");
   return [
     `default-src 'self'`,
@@ -43,8 +51,8 @@ export function buildContentSecurityPolicy(pathname: string, nonce?: string): st
 }
 
 export function applySecurityHeaders(res: Response, pathname: string, nonce?: string): Response {
-  const effectiveNonce = nonce ?? crypto.randomUUID().replace(/-/g, "");
   const isAdmin = pathname.startsWith("/admin");
+  const effectiveNonce = isAdmin ? nonce ?? crypto.randomUUID().replace(/-/g, "") : undefined;
   const csp = buildContentSecurityPolicy(pathname, effectiveNonce);
   res.headers.set("Content-Security-Policy", csp);
   res.headers.set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload");
@@ -52,7 +60,7 @@ export function applySecurityHeaders(res: Response, pathname: string, nonce?: st
   res.headers.set("X-Content-Type-Options", "nosniff");
   res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   res.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), interest-cohort=()");
-  res.headers.set("x-nonce", effectiveNonce);
+  if (effectiveNonce) res.headers.set("x-nonce", effectiveNonce);
   return res;
 }
 

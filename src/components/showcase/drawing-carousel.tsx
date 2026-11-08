@@ -7,9 +7,9 @@ import useReducedMotion from "@/hooks/use-reduced-motion";
 const CAROUSEL_INTERVAL = 3500; // ms — autoplay cadence
 
 const images: { src: string; artist?: string }[] = [
-  { src: "/assets/bongo-cat/none.png", artist: "Shubu" },
-  { src: "/assets/bongo-cat/left.png", artist: "Shubu" },
-  { src: "/assets/bongo-cat/right.png", artist: "Shubu" },
+  { src: "/assets/bongo-cat/none.webp", artist: "Shubu" },
+  { src: "/assets/bongo-cat/left.webp", artist: "Shubu" },
+  { src: "/assets/bongo-cat/right.webp", artist: "Shubu" },
 ];
 
 export default function DrawingCarousel({ className = "" }: { className?: string }) {

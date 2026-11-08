@@ -16,21 +16,6 @@ function isPlaywrightDevBypass() {
   return process.env.NODE_ENV === "development" && process.env.PLAYWRIGHT_TEST === "1";
 }
 
-// Cloudflare auto-injects the Web Analytics beacon into every page on the zone
-// via the edge (before our Worker runs). The bundled `integrity` SRI hash no
-// longer matches the rolled JS bytes, so the browser logs an error on every
-// page load and refuses to load it. Strip the tag — we don't want analytics on
-// /admin/* anyway, and on the public site the beacon was dead in the water.
-async function stripCfBeacon(response: Response): Promise<Response> {
-  const ct = response.headers.get("content-type") ?? "";
-  if (!ct.includes("text/html")) return response;
-  const rewriter = new HTMLRewriter()
-    .on("script[src*='cloudflareinsights.com']", {
-      element(el) { el.remove(); },
-    });
-  return rewriter.transform(response);
-}
-
 function expireSessionCookie(res: NextResponse): void {
   res.cookies.set(ADMIN_COOKIE_NAME, "", {
     httpOnly: true,
@@ -101,9 +86,16 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Generate one nonce per request, propagate via x-nonce request header so
-  // Next.js applies it to its inline scripts, then reuse it on the response
-  // CSP header so the browser trusts them.
+  // Public routes: static CSP with no per-request nonce, so pages stay
+  // statically renderable / ISR-cacheable (see buildContentSecurityPolicy).
+  if (!isAdmin) {
+    const response = NextResponse.next();
+    applySecurityHeaders(response, pathname);
+    return response;
+  }
+
+  // Admin: one nonce per request, forwarded on the request CSP header so Next.js
+  // stamps it on its inline scripts, and reused on the response CSP header.
   const nonce = crypto.randomUUID().replace(/-/g, "");
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-nonce", nonce);
@@ -121,9 +113,7 @@ export async function middleware(request: NextRequest) {
     });
   }
 
-  // Strip Cloudflare Web Analytics beacon from HTML responses (zone-injected,
-  // not via our Worker, so we have to undo it after the page renders).
-  return stripCfBeacon(response);
+  return response;
 }
 
 export const config = {

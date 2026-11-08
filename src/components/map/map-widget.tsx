@@ -1,28 +1,19 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import maplibregl, { Map } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "next-themes";
 import styles from "./map-widget.module.css";
-import Image from "next/image";
-import useReducedMotion from "@/hooks/use-reduced-motion";
+import {
+  DEFAULT_CENTER,
+  MAP_BEARING,
+  MAP_PITCH,
+  MAP_ZOOM,
+  mapStyleUrl as styleUrl,
+} from "./map-config";
 
-// Map placement/tuning — single-use, so it lives with its only consumer.
-const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716];
-const ZOOM_INITIAL = 9;
-const ZOOM_FLY = 12;
-const PITCH = 45;
-const BEARING = -15;
-const FLY_SPEED = 0.6;
 const BUILDING_ZOOM_MIN = 15;
 const BUILDING_HEIGHT_FACTOR = 0.5;
-
-function styleUrl(isDark: boolean) {
-  // positron = high-contrast light-on-dark; bright = light theme
-  return isDark
-    ? "https://tiles.openfreemap.org/styles/positron"
-    : "https://tiles.openfreemap.org/styles/bright";
-}
 
 // (Re)attach the 3D buildings source + layer for the current style/theme.
 // Called on first load and after every setStyle (which drops custom layers).
@@ -76,22 +67,26 @@ function addBuildings(map: Map, isDark: boolean) {
   }
 }
 
+// Live MapLibre layer. Loaded on demand by components/home/map-section.tsx,
+// which owns the container, the static placeholder and the plane/cloud overlay.
+// Opens on exactly the static image's view (no zoom-9 → 12 fly-in, which used to
+// fetch two zoom levels of tiles), so the swap is seamless.
 export default function MapWidget({
   center = DEFAULT_CENTER,
   locationLabel = "Location",
+  onReady,
 }: {
   center?: [number, number];
   locationLabel?: string;
+  onReady?: () => void;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<Map | null>(null);
   // The dark-ness currently applied to the map's style; lets us skip redundant
   // setStyle calls (e.g. next-themes settling undefined → "system", both light).
   const appliedDark = useRef<boolean | null>(null);
+  const onReadyRef = useRef(onReady);
   const { resolvedTheme } = useTheme();
-  const reducedMotion = useReducedMotion();
-  const [hovering, setHovering] = useState(false);
-  const [loaded, setLoaded] = useState(false);
   const centerLng = center[0];
   const centerLat = center[1];
   const mapCenter = useMemo<[number, number]>(() => {
@@ -99,6 +94,10 @@ export default function MapWidget({
     const lat = Number.isFinite(centerLat) ? centerLat : DEFAULT_CENTER[1];
     return [lng, lat];
   }, [centerLng, centerLat]);
+
+  useEffect(() => {
+    onReadyRef.current = onReady;
+  }, [onReady]);
 
   // Create the map exactly once. Theme changes are handled by setStyle below,
   // not by tearing the whole map down and refetching every tile.
@@ -113,9 +112,9 @@ export default function MapWidget({
       container: ref.current,
       style: styleUrl(isDark),
       center: mapCenter,
-      zoom: ZOOM_INITIAL,
-      pitch: PITCH,
-      bearing: BEARING,
+      zoom: MAP_ZOOM,
+      pitch: MAP_PITCH,
+      bearing: MAP_BEARING,
       interactive: true,
       attributionControl: false,
       // Globe projection (applied on load) gives a real earth view when zoomed
@@ -126,16 +125,12 @@ export default function MapWidget({
     mapRef.current = map;
 
     map.on("load", () => {
-      setLoaded(true);
       map.setProjection({ type: "globe" });
-      const shouldReduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (shouldReduce) {
-        map.jumpTo({ center: mapCenter, zoom: ZOOM_FLY, pitch: PITCH, bearing: BEARING });
-      } else {
-        map.flyTo({ center: mapCenter, zoom: ZOOM_FLY, essential: true, speed: FLY_SPEED });
-      }
       addBuildings(map, isDark);
+      map.once("idle", () => onReadyRef.current?.());
     });
+    // The user asked for the map (click/tap/Enter): hand it keyboard focus.
+    ref.current.focus({ preventScroll: true });
 
     return () => {
       map.remove();
@@ -162,44 +157,11 @@ export default function MapWidget({
 
   return (
     <div
-      className={`${styles.container} ${hovering ? 'hovering' : ''}`}
-      data-theme={resolvedTheme}
-      data-reduced-motion={reducedMotion ? "true" : undefined}
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-    >
-      <div
-        ref={ref}
-        className={styles.map}
-        role="region"
-        tabIndex={0}
-        aria-label={`Interactive map centered on ${locationLabel}`}
-      />
-      {!loaded && <div className={styles.loading}>Loading map</div>}
-      <div className={styles.overlay}>
-        <div className={styles.planeTrack}>
-          <div className={styles.planeWrap}>
-            <Image src="/assets/plane/plane-shadow.webp" alt="plane shadow" width={72} height={40} className={styles.shadow} />
-            <Image src="/assets/plane/plane.webp" alt="plane" width={72} height={40} className={styles.plane} />
-          </div>
-        </div>
-        {/* Back layer — larger, slower, fainter: parallax depth */}
-        <Image
-          src="/assets/plane/cloud.webp"
-          alt=""
-          aria-hidden
-          width={300}
-          height={200}
-          className={`${styles.cloud} ${styles.cloudBack} ${resolvedTheme === 'dark' ? styles.cloudDark : ''}`}
-        />
-        <Image
-          src="/assets/plane/cloud.webp"
-          alt="cloud"
-          width={240}
-          height={160}
-          className={`${styles.cloud} ${resolvedTheme === 'dark' ? styles.cloudDark : ''}`}
-        />
-      </div>
-    </div>
+      ref={ref}
+      className={styles.map}
+      role="region"
+      tabIndex={0}
+      aria-label={`Interactive map centered on ${locationLabel}`}
+    />
   );
 }

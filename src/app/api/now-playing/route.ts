@@ -31,13 +31,36 @@ const PUBLIC_API_LIMIT = 120;
 const PUBLIC_API_WINDOW_SEC = 60;
 const ALBUM_ART_CACHE_TTL_SEC = 7 * 24 * 60 * 60;
 
-async function getPublicApiEnv(): Promise<PublicRateLimitEnv> {
+interface NowPlayingEnv extends PublicRateLimitEnv {
+  LASTFM_API_KEY?: string;
+  LASTFM_USERNAME?: string;
+}
+
+async function getPublicApiEnv(): Promise<NowPlayingEnv> {
   try {
     const ctx = await getCloudflareContext({ async: true });
-    return ctx.env as unknown as PublicRateLimitEnv;
+    return ctx.env as unknown as NowPlayingEnv;
   } catch {
     return {};
   }
+}
+
+const IDLE_PAYLOAD: NowPlayingData = {
+  playing: false,
+  title: "",
+  artist: "",
+  album: "",
+  artUrl: null,
+  accentColor: FALLBACK_ACCENT_COLOR,
+};
+
+// The widget treats this exactly like "not listening right now". Used when
+// Last.fm isn't configured or is unreachable, so a missing secret or an upstream
+// blip never surfaces as a 5xx (and a console error) on every homepage visit.
+function idleResponse(maxAgeSeconds: number) {
+  return NextResponse.json(IDLE_PAYLOAD, {
+    headers: { "Cache-Control": `public, s-maxage=${maxAgeSeconds}, stale-while-revalidate=60` },
+  });
 }
 
 function upgradeItunesArtworkUrl(raw: string): string {
@@ -165,26 +188,32 @@ export async function GET(request: Request) {
   if (limited) return limited;
   const db = env.DB ?? null;
 
-  const apiKey = process.env.LASTFM_API_KEY;
-  const username = process.env.LASTFM_USERNAME;
+  // Wrangler secrets/vars arrive on the Cloudflare env binding; OpenNext also
+  // mirrors string bindings onto process.env, which is what `next dev` uses.
+  const apiKey = env.LASTFM_API_KEY ?? process.env.LASTFM_API_KEY;
+  const username = env.LASTFM_USERNAME ?? process.env.LASTFM_USERNAME;
 
-  if (!apiKey || !username) {
-    return NextResponse.json({ error: "Missing Last.fm config" }, { status: 500 });
-  }
+  if (!apiKey || !username) return idleResponse(300);
 
-  const res = await fetch(
-    `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${username}&api_key=${apiKey}&format=json&limit=1`,
-    { next: { revalidate: 30 } }
-  );
-
-  const data = (await res.json()) as {
+  let data: {
     error?: number;
     message?: string;
     recenttracks?: { track?: unknown };
   };
+  try {
+    const res = await fetch(
+      `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${encodeURIComponent(username)}&api_key=${encodeURIComponent(apiKey)}&format=json&limit=1`,
+      { next: { revalidate: 30 } }
+    );
+    data = (await res.json()) as typeof data;
+  } catch (error) {
+    console.warn("[now-playing] Last.fm request failed", error instanceof Error ? error.message : error);
+    return idleResponse(30);
+  }
 
   if (data.error) {
-    return NextResponse.json({ error: data.message }, { status: 502 });
+    console.warn("[now-playing] Last.fm returned an error", data.error, data.message);
+    return idleResponse(30);
   }
 
   const tracks = (data.recenttracks?.track ?? []) as unknown[];

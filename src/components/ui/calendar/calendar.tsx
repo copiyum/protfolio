@@ -6,25 +6,35 @@ import { DAILY_MESSAGES, DOW } from './constants';
 import { addDays, dateKeyLocal, normalizeDate, sameDay, startOfWeek, setupResizeObserver } from './helpers';
 import type { CalendarProps } from './types';
 import useReducedMotion from '@/hooks/use-reduced-motion';
+import useHasMounted from '@/hooks/use-has-mounted';
 
-export default function Calendar({ selectedDate = new Date(), className = '', value, onChange }: CalendarProps) {
+// Server render + hydration use a fixed date so the markup is deterministic
+// (the server runs in UTC and its HTML is cached; visitors are not). The real
+// "today" is swapped in right after mount; date text stays hidden until then.
+const PLACEHOLDER_DATE = new Date(2024, 0, 7);
+
+export default function Calendar({ selectedDate, className = '', value, onChange }: CalendarProps) {
   const reducedMotion = useReducedMotion();
+  const mounted = useHasMounted();
+  // Today is fixed for the header (computed client-side only, see PLACEHOLDER_DATE)
+  const today = useMemo(() => normalizeDate(mounted ? new Date() : PLACEHOLDER_DATE), [mounted]);
   const controlled = value instanceof Date;
-  const baseDate = controlled ? value! : selectedDate;
+  const baseDate = controlled ? value! : (selectedDate ?? today);
 
   // Build week (Sun..Sat) containing baseDate
   const weekStart = useMemo(() => startOfWeek(baseDate), [baseDate]);
   const days = useMemo(() => [...Array(7)].map((_, i) => addDays(weekStart, i)), [weekStart]);
 
-  // Today is fixed for the header
-  const today = useMemo(() => normalizeDate(new Date()), []);
   const headerDayLabel = DOW[today.getDay()].slice(0, 3).replace(/^./, (c) => c.toUpperCase());
   // ponytail: pinned locale, not `undefined` — server/client locales differ → hydration mismatch
   const fullDateLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
   // Selection index
   const defaultIndex = Math.max(0, days.findIndex((d) => sameDay(d, today)));
-  const [selectedIdx, setSelectedIdx] = useState(defaultIndex);
+  // null = follow today's index (which changes once the real date is known)
+  const [pickedIdx, setSelectedIdx] = useState<number | null>(null);
+  const selectedIdx = pickedIdx ?? defaultIndex;
+  const dateTextStyle: React.CSSProperties | undefined = mounted ? undefined : { visibility: 'hidden' };
 
   // Moving overlay pill state and refs
   const [moving, setMoving] = useState(false);
@@ -34,7 +44,6 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
   const contentRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [overlayPos, setOverlayPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [ready, setReady] = useState(false);
-  const prevSelectedRef = useRef<number>(defaultIndex);
 
   const computeOverlapRatio = useCallback((a: DOMRect, b: DOMRect) => {
     const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
@@ -83,6 +92,8 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
 
   // Initial position after first paint (without transition)
   useLayoutEffect(() => {
+    // Wait for the real date so the pill doesn't slide over from the placeholder day.
+    if (!mounted) return;
     const pill = overlayPillRef.current;
     if (pill) {
       const prev = pill.style.transition;
@@ -107,7 +118,7 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
       if (glowFrame !== null) cancelAnimationFrame(glowFrame);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reducedMotion]);
+  }, [reducedMotion, mounted]);
 
   // Reposition overlay on selection changes
   useLayoutEffect(() => {
@@ -157,11 +168,10 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
   const handleSelect = useCallback((idx: number, animate = true) => {
     setMoving(animate && !reducedMotion);
     setSelectedIdx(idx);
-    const prev = itemRefs.current[prevSelectedRef.current];
+    const prev = itemRefs.current[selectedIdx];
     if (prev) prev.style.setProperty('--glow-blur', '0px');
-    prevSelectedRef.current = idx;
     if (onChange) onChange(days[idx]);
-  }, [days, onChange, reducedMotion]);
+  }, [days, onChange, reducedMotion, selectedIdx]);
 
   // keyboard navigation: arrows + home/end
   const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -182,8 +192,8 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
         onMouseLeave={() => setPanelHover(false)}
       >
         <div className={styles.panelHeader}>
-          <div className={styles.headerLeft}>{headerDayLabel}</div>
-          <div className={styles.headerRight}>{fullDateLabel}</div>
+          <div className={styles.headerLeft} style={dateTextStyle}>{headerDayLabel}</div>
+          <div className={styles.headerRight} style={dateTextStyle}>{fullDateLabel}</div>
         </div>
 
         <div className={styles.messageBar} aria-hidden={!panelHover}>
@@ -220,7 +230,7 @@ export default function Calendar({ selectedDate = new Date(), className = '', va
                 aria-label={ariaLabel}
                 role="gridcell"
               >
-                <div ref={(el) => { contentRefs.current[idx] = el; }}>
+                <div ref={(el) => { contentRefs.current[idx] = el; }} style={dateTextStyle}>
                   <div className={`${styles.dayNum} ${isToday ? styles.todayText : ''}`}>{dayNum}</div>
                   <div className={`${styles.dow} ${isToday ? styles.todayText : ''}`}>{dow}</div>
                 </div>

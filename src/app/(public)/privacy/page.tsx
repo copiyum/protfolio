@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy — Sarang",
+  title: "Privacy",
   description: "Privacy notes for sarang.dev.",
 };
 

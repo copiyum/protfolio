@@ -23,6 +23,10 @@ const STAR_WIND_FREQ_X = 0.035;
 const STAR_WIND_FREQ_Y = 0.055;
 const STAR_BROWNIAN_SCALE = 0.12;
 const STAR_TWINKLE_SPEED = 0.009;
+// ~0.000184/px² is ~380 stars at 1440x900 but ~1100 on a 4K screen; cap it.
+const STAR_COUNT_MAX = 400;
+// Phones/tablets (and reduced motion) get one static frame, no rAF loop.
+const STATIC_ONLY_QUERY = "(pointer: coarse), (hover: none), (prefers-reduced-motion: reduce)";
 
 type Star = { x: number; y: number; r: number; a: number; av: number; twinkle: number; vx: number; vy: number };
 
@@ -43,7 +47,9 @@ export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { dens
   useEffect(() => {
     const canvas = canvasRef.current!;
     const ctx = canvas.getContext("2d", { alpha: true })!;
-    let active = !reducedMotion && document.visibilityState === "visible";
+    const staticOnly = reducedMotion || window.matchMedia(STATIC_ONLY_QUERY).matches;
+    let onScreen = true;
+    const shouldAnimate = () => !staticOnly && onScreen && document.visibilityState === "visible";
 
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -53,7 +59,7 @@ export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { dens
       canvas.height = Math.floor(h * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-      const count = Math.floor(w * h * density);
+      const count = Math.min(STAR_COUNT_MAX, Math.floor(w * h * density));
       const stars: Star[] = [];
       for (let i = 0; i < count; i++) {
         stars.push({
@@ -128,34 +134,47 @@ export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { dens
 
     function draw() {
       drawScene(true);
-      rafRef.current = active ? requestAnimationFrame(draw) : null;
+      rafRef.current = shouldAnimate() ? requestAnimationFrame(draw) : null;
     }
 
-    const ro = new ResizeObserver(resize);
+    // Start/stop the loop as tab visibility or on-screen state changes.
+    function sync() {
+      const animate = shouldAnimate();
+      if (!animate && rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      if (animate && !rafRef.current) rafRef.current = requestAnimationFrame(draw);
+    }
+
+    const ro = new ResizeObserver(() => {
+      resize();
+      if (!rafRef.current) drawScene(false);
+    });
     ro.observe(canvas);
     resize();
     drawScene(false);
-    if (active) rafRef.current = requestAnimationFrame(draw);
+    sync();
+
+    const io = new IntersectionObserver(([entry]) => {
+      onScreen = entry?.isIntersecting ?? true;
+      sync();
+    });
+    io.observe(canvas);
 
     const onMove = (event: MouseEvent) => {
       mouseRef.current.x = event.clientX / window.innerWidth;
       mouseRef.current.y = event.clientY / window.innerHeight;
     };
-    const onVisibilityChange = () => {
-      active = !reducedMotion && document.visibilityState === "visible";
-      if (!active && rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-      if (active && !rafRef.current) rafRef.current = requestAnimationFrame(draw);
-    };
-    if (!reducedMotion) window.addEventListener("mousemove", onMove);
-    document.addEventListener("visibilitychange", onVisibilityChange);
+    if (!staticOnly) window.addEventListener("mousemove", onMove, { passive: true });
+    document.addEventListener("visibilitychange", sync);
     return () => {
       ro.disconnect();
+      io.disconnect();
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
       window.removeEventListener("mousemove", onMove);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
+      document.removeEventListener("visibilitychange", sync);
     };
   }, [density, mounted, reducedMotion, resolvedTheme, theme]);
 
@@ -163,6 +182,7 @@ export default function AnimatedStars({ density = STAR_DENSITY_DEFAULT }: { dens
     <canvas
       ref={canvasRef}
       className="pointer-events-none fixed inset-0 z-[1] h-full w-full"
+      style={{ contain: "paint", willChange: "transform" }}
       aria-hidden
     />
   );

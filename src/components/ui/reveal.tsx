@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { REVEAL_READY_ATTR } from "./reveal-script";
 
 // ponytail: IntersectionObserver + CSS class. No animation lib for scroll reveals.
 export default function Reveal({
@@ -18,6 +19,12 @@ export default function Reveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    document.documentElement.setAttribute(REVEAL_READY_ATTR, "");
+    if (typeof IntersectionObserver === "undefined") {
+      // No observer → never leave content hidden.
+      document.documentElement.classList.remove("reveal-armed");
+      return;
+    }
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

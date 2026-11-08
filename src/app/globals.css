@@ -154,20 +154,21 @@ body {
 	display: block;
 }
 
-/* Scroll/entrance reveal — used by <Reveal> */
+/* Scroll/entrance reveal — used by <Reveal>.
+   Content is visible by default (no JS, crawlers, full-page screenshots). It is
+   only pre-hidden once the inline script in (public)/layout.tsx has added
+   html.reveal-armed, and that script drops the class again if <Reveal> never
+   hydrates (see REVEAL_ARM_SCRIPT). */
 .reveal {
-	opacity: 0;
-	transform: translateY(16px);
 	transition:
 		opacity var(--motion-section) var(--ease-standard),
 		transform var(--motion-section) var(--ease-standard),
 		filter var(--motion-section) var(--ease-standard);
-	filter: blur(2px);
 }
-.reveal-in {
-	opacity: 1;
-	transform: none;
-	filter: blur(0);
+html.reveal-armed .reveal:not(.reveal-in) {
+	opacity: 0;
+	transform: translateY(16px);
+	filter: blur(2px);
 }
 
 @keyframes motion-presence-in {

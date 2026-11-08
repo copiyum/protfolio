@@ -12,11 +12,8 @@ function computeIST() {
   return { time, userOffset };
 }
 
-// Lazy initializer = first paint already has the real time (no empty "" flash).
-// Server computes its own value; render the clock with suppressHydrationWarning.
-// ponytail: literal pre-paint <script> adds nothing here — the clock lives inside
-// a client-only maplibre widget that paints nothing before JS anyway.
-// The display is HH:MM, so we tick on the minute boundary, not every second.
+// Returns null during SSR/hydration (see useMinuteClock), then ticks on the
+// minute boundary — the display is HH:MM.
 export default function useISTClock() {
   return useMinuteClock(computeIST);
 }

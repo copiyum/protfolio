@@ -33,5 +33,5 @@ function computeClock(timeZone: string) {
 }
 
 export default function useTimezoneClock(timeZone: string) {
-  return useMinuteClock(() => computeClock(timeZone), [timeZone]);
+  return useMinuteClock(() => computeClock(timeZone));
 }

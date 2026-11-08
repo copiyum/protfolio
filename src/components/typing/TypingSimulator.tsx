@@ -14,9 +14,9 @@ import { Mascot } from "./Mascot";
 import useReducedMotion from "@/hooks/use-reduced-motion";
 
 const MASCOT_FRAMES = [
-	"/assets/bongo-cat/none.png",
-	"/assets/bongo-cat/left.png",
-	"/assets/bongo-cat/right.png",
+	"/assets/bongo-cat/none.webp",
+	"/assets/bongo-cat/left.webp",
+	"/assets/bongo-cat/right.webp",
 ];
 
 const TRAIL_LEN = 6; // number of trailing glow characters
@@ -66,6 +66,8 @@ export default function TypingSimulator() {
 			seed = u32[0] || seed;
 		} catch {}
 			const nextTarget = generatePassage(seed);
+			// Warm the other mascot frames (the <img> is lazy) so keystroke swaps don't flash.
+			for (const src of MASCOT_FRAMES) new window.Image().src = src;
 			const begin = () => {
 				setTarget(nextTarget);
 				setReady(true);
