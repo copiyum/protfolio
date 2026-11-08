@@ -20,6 +20,16 @@ export default function MapSection({ profile }: { profile: ProfileSettings }) {
 
   const prefetch = useCallback(() => {
     void loadMapWidget().catch(() => {});
+    // Warm the TLS connection to the tile server so the first tiles after a
+    // click don't pay for DNS + handshake.
+    if (!document.querySelector('link[data-map-preconnect]')) {
+      const link = document.createElement("link");
+      link.rel = "preconnect";
+      link.href = "https://tiles.openfreemap.org";
+      link.crossOrigin = "anonymous";
+      link.dataset.mapPreconnect = "";
+      document.head.appendChild(link);
+    }
   }, []);
 
   const activate = useCallback(() => {

@@ -36,7 +36,11 @@
   background: linear-gradient(transparent, rgba(245, 245, 245, 0.25) 35%, rgba(245, 245, 245, 0.5) 65%, rgba(245, 245, 245, 0.7) 85%, #f5f5f5);
 }
 
-.map {
+/* `.container > .map` (not bare `.map`): maplibre-gl.css is lazy-loaded with
+   the widget, lands after this file and sets `.maplibregl-map { position:
+   relative }`. With equal specificity it would win, collapsing the map to 0px
+   tall behind the faded-out static image. */
+.container > .map {
   position: absolute;
   inset: 0;
   overflow: hidden;

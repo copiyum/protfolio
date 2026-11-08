@@ -121,13 +121,29 @@ export default function MapWidget({
       // out — which also removes the old "repeated flat world copies" problem, so
       // we no longer clamp minZoom or disable world copies.
       fadeDuration: 0, // tiles snap in rather than visibly fading on zoom
+      // 3x phone screens would otherwise render 2.25x the pixels of 2x for no
+      // visible gain on a 200px-tall card.
+      pixelRatio: Math.min(window.devicePixelRatio || 1, 2),
+      // On touch, one finger keeps scrolling the page; two fingers move the map.
+      cooperativeGestures: window.matchMedia("(pointer: coarse)").matches,
     });
     mapRef.current = map;
+
+    // Some OpenFreeMap styles reference sprite images they don't ship (e.g.
+    // "wood-pattern" in dark). Register a transparent pixel instead of warning.
+    map.on("styleimagemissing", (e) => {
+      if (!map.hasImage(e.id)) map.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
+    });
 
     map.on("load", () => {
       map.setProjection({ type: "globe" });
       addBuildings(map, isDark);
-      map.once("idle", () => onReadyRef.current?.());
+      // Only cross-fade away from the static image once the live map has
+      // actually painted at a real size; otherwise keep the static view.
+      map.resize();
+      map.once("idle", () => {
+        if (map.getCanvas().clientHeight > 0) onReadyRef.current?.();
+      });
     });
     // The user asked for the map (click/tap/Enter): hand it keyboard focus.
     ref.current.focus({ preventScroll: true });
