@@ -6,7 +6,9 @@
  *   npx tsx scripts/capture-static-map.ts [lng] [lat]
  * Defaults to the map's DEFAULT_CENTER.
  */
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { chromium } from "@playwright/test";
 import {
@@ -22,6 +24,7 @@ import {
 const ROOT = path.resolve(__dirname, "..");
 const OUT_DIR = path.join(ROOT, "public/assets/map");
 const WEBP_QUALITY = 0.78;
+const AVIF_QUALITY = 42;
 
 async function main() {
   const lng = Number(process.argv[2] ?? DEFAULT_CENTER[0]);
@@ -49,7 +52,7 @@ async function main() {
   await mkdir(OUT_DIR, { recursive: true });
 
   for (const theme of ["light", "dark"] as const) {
-    const dataUrl = await page.evaluate(
+    const [webpUrl, pngUrl] = await page.evaluate(
       async ({ style, center, zoom, pitch, bearing, quality }) => {
         const w = window as unknown as {
           maplibregl: { Map: new (opts: object) => {
@@ -78,7 +81,8 @@ async function main() {
         await new Promise<void>((resolve) => map.on("load", () => resolve()));
         map.setProjection({ type: "globe" });
         await new Promise<void>((resolve) => map.once("idle", () => resolve()));
-        return map.getCanvas().toDataURL("image/webp", quality);
+        const canvas = map.getCanvas();
+        return [canvas.toDataURL("image/webp", quality), canvas.toDataURL("image/png")];
       },
       {
         style: mapStyleUrl(theme === "dark"),
@@ -89,10 +93,25 @@ async function main() {
         quality: WEBP_QUALITY,
       },
     );
-    const bytes = Buffer.from(dataUrl.split(",")[1], "base64");
+    const bytes = Buffer.from(webpUrl.split(",")[1], "base64");
     const out = path.join(OUT_DIR, `static-${theme}.webp`);
     await writeFile(out, bytes);
     console.log(`wrote ${path.relative(ROOT, out)} (${(bytes.length / 1024).toFixed(1)} KB)`);
+
+    // AVIF from a lossless PNG master (not re-encoding the lossy WebP).
+    // Needs `avifenc` (brew install libavif); skipped with a warning otherwise.
+    const png = path.join(os.tmpdir(), `static-${theme}-${process.pid}.png`);
+    const avif = path.join(OUT_DIR, `static-${theme}.avif`);
+    await writeFile(png, Buffer.from(pngUrl.split(",")[1], "base64"));
+    try {
+      execFileSync("avifenc", ["-q", String(AVIF_QUALITY), "-s", "4", "-y", "420", "-j", "all", png, avif], { stdio: "ignore" });
+      const size = (await readFile(avif)).length;
+      console.log(`wrote ${path.relative(ROOT, avif)} (${(size / 1024).toFixed(1)} KB)`);
+    } catch {
+      console.warn("avifenc not found or failed; kept the WebP only");
+    } finally {
+      await rm(png, { force: true });
+    }
   }
 
   await browser.close();

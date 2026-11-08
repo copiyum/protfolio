@@ -65,6 +65,8 @@
   border-radius: inherit;
   background-color: rgb(12, 12, 12);
   background-image: url("/assets/map/static-dark.webp");
+  /* AVIF is ~60% smaller; browsers without image-set type() keep the WebP line above. */
+  background-image: image-set(url("/assets/map/static-dark.avif") type("image/avif"), url("/assets/map/static-dark.webp") type("image/webp"));
   background-size: 600px 240px;
   background-position: center;
   background-repeat: no-repeat;
@@ -73,6 +75,8 @@
 :global(html:not(.dark)) .staticMap {
   background-color: #f8f4f0;
   background-image: url("/assets/map/static-light.webp");
+  /* AVIF is ~60% smaller; browsers without image-set type() keep the WebP line above. */
+  background-image: image-set(url("/assets/map/static-light.avif") type("image/avif"), url("/assets/map/static-light.webp") type("image/webp"));
 }
 .container[data-ready="true"] .staticMap {
   opacity: 0;
