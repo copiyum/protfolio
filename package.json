@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "migrate": "tsx scripts/migrate-content-to-d1.ts",
+    "backfill:blog": "tsx scripts/backfill-post-documents.ts",
     "postinstall": "node -e \"if (!process.env.CI) process.exit(1)\" || wrangler types"
   },
   "dependencies": {

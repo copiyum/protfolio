@@ -2,7 +2,6 @@
 import { spawn } from "node:child_process";
 
 const child = spawn("next", ["build", "--webpack"], {
-  shell: true,
   stdio: ["inherit", "pipe", "pipe"],
 });
 

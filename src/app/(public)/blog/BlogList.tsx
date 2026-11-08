@@ -3,22 +3,33 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
-import type { Post } from "@/data/posts";
+import type { PostSummary } from "@/data/posts";
 
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" });
+  new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
 
-export default function BlogList({ posts }: { posts: Post[] }) {
+export default function BlogList({ posts }: { posts: PostSummary[] }) {
   const [q, setQ] = useState("");
 
   const filtered = useMemo(() => {
     const term = q.trim().toLowerCase();
-    const list = [...posts].sort((a, b) => (a.date < b.date ? 1 : -1));
+    const list = [...posts].sort((a, b) => b.date.localeCompare(a.date));
     if (!term) return list;
     return list.filter((p) =>
-      [p.title, p.summary, ...p.tags].some((f) => f.toLowerCase().includes(term))
+      [p.title, p.summary, ...p.tags].some((f) => f.toLowerCase().includes(term)),
     );
   }, [posts, q]);
+
+  const groups = filtered.reduce<Record<string, PostSummary[]>>((result, post) => {
+    const year = post.date.slice(0, 4);
+    (result[year] ??= []).push(post);
+    return result;
+  }, {});
 
   return (
     <>
@@ -40,34 +51,51 @@ export default function BlogList({ posts }: { posts: Post[] }) {
           {posts.length === 0 ? "No posts have been published yet." : <>No posts match &quot;{q}&quot;.</>}
         </p>
       ) : (
-        <div className="overflow-hidden rounded-none border border-[color:var(--foreground)]/10 bg-transparent divide-y divide-[color:var(--foreground)]/10">
-          {filtered.map((p) => (
-            <Link
-              key={p.slug}
-              href={`/blog/${p.slug}`}
-              className="group flex gap-4 px-4 py-4 transition-colors hover:bg-[color:var(--accent)]/[0.05]"
-            >
-              <div
-                className="hidden h-16 w-24 shrink-0 rounded-sm sm:block"
-                style={{
-                  backgroundImage: p.cover
-                    ? `url('${p.cover}')`
-                    : "radial-gradient(circle at 30% 30%, rgba(143,145,224,0.35), transparent 65%), var(--card-bg)",
-                  backgroundSize: "cover",
-                  backgroundPosition: "center",
-                  border: "1px solid var(--card-border)",
-                }}
-                aria-hidden
-              />
-              <div className="min-w-0">
-                <div className="flex items-baseline justify-between gap-3">
-                  <h2 className="truncate text-sm font-semibold text-[color:var(--foreground)] group-hover:text-[color:var(--accent)]">{p.title}</h2>
-                  <time className="shrink-0 text-xs text-[color:var(--foreground)]/45">{fmtDate(p.date)}</time>
+        <div className="space-y-9">
+          {Object.entries(groups)
+            .sort(([a], [b]) => b.localeCompare(a))
+            .map(([year, yearPosts]) => (
+              <section key={year}>
+                <h2 className="mb-2 border-b border-[color:var(--foreground)]/15 pb-2 font-mono text-xs text-[color:var(--foreground)]/45">
+                  {year}
+                </h2>
+                <div>
+                  {yearPosts.map((post) => (
+                    <Link
+                      key={post.slug}
+                      href={`/blog/${post.slug}`}
+                      className="group grid gap-2 border-b border-[color:var(--foreground)]/10 py-4 sm:grid-cols-[1fr_auto] sm:gap-x-8"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-mono text-base font-semibold tracking-[-.03em] group-hover:text-[color:var(--accent)]">
+                            {post.title}
+                          </h3>
+                          {post.hasRichBody && (
+                            <span className="rounded border border-[color:var(--accent)]/30 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wide text-[color:var(--accent)]">
+                              field note
+                            </span>
+                          )}
+                        </div>
+                        <p className="mt-1 text-sm leading-6 text-[color:var(--foreground)]/60">
+                          {post.summary}
+                        </p>
+                        <ul className="mt-2 flex flex-wrap gap-1.5">
+                          {post.tags.map((tag, index) => (
+                            <li key={`${index}-${tag}`} className="font-mono text-[10px] text-[color:var(--foreground)]/45">
+                              #{tag}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <time className="font-mono text-[10px] text-[color:var(--foreground)]/45">
+                        {fmtDate(post.date)}
+                      </time>
+                    </Link>
+                  ))}
                 </div>
-                <p className="mt-1 line-clamp-2 text-[13px] leading-relaxed text-[color:var(--foreground)]/65">{p.summary}</p>
-              </div>
-            </Link>
-          ))}
+              </section>
+            ))}
         </div>
       )}
     </>

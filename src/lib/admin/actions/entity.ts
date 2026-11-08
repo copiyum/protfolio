@@ -14,6 +14,9 @@ const crudCache = new Map<string, EntityActions>();
 function getActions(entity: string): EntityActions {
   const cached = crudCache.get(entity);
   if (cached) return cached;
+  if (entity === "posts") {
+    throw new Error("Posts use the dedicated draft and publishing workflow");
+  }
   const plugin = getEntityPlugin(entity);
   if (!plugin) throw new Error("Unknown admin entity");
   const actions = defineAnyEntityCrud(plugin) as EntityActions;

@@ -107,8 +107,19 @@ async function main() {
 
   for (const p of posts) {
     await exec(
-      `INSERT OR REPLACE INTO posts (id, title, slug, date, summary, tags, cover, content, published)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+      `INSERT INTO posts (id, title, slug, date, summary, tags, cover, content, published)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+       ON CONFLICT(id) DO UPDATE SET
+         title = excluded.title,
+         slug = excluded.slug,
+         date = excluded.date,
+         summary = excluded.summary,
+         tags = excluded.tags,
+         cover = excluded.cover,
+         content = excluded.content,
+         published = excluded.published,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       WHERE posts.body IS NULL OR posts.body = ''`,
       [p.slug, p.title, p.slug, p.date, p.summary, JSON.stringify(p.tags), p.cover ?? null, JSON.stringify(p.content)],
     );
   }

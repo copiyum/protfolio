@@ -29,7 +29,7 @@ export function adminActionError(error: unknown): string {
 
 export async function adminAction<T extends AdminActionResult>(
   fn: () => Promise<T>,
-): Promise<AdminActionResult> {
+): Promise<T | { ok: false; error: string }> {
   try {
     return await fn();
   } catch (error) {

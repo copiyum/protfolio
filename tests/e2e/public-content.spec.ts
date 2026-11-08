@@ -3,7 +3,7 @@ import { posts } from "../../src/data/posts";
 
 test("published blog index and detail routes agree", async ({ page }) => {
   await page.goto("/blog");
-  await expect(page.getByRole("heading", { name: "Blog" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Field notes" })).toBeVisible();
   for (const post of posts) {
     await expect(page.getByRole("link", { name: post.title })).toBeVisible();
     const response = await page.goto(`/blog/${post.slug}`);
