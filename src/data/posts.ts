@@ -1,4 +1,6 @@
 export interface Post {
+  /** Stable D1 id when a post has been created through the editor. */
+  id?: string;
   slug: string;
   title: string;
   /** ISO date — formatted with a pinned locale to stay hydration-safe. */
@@ -9,7 +11,19 @@ export interface Post {
   cover?: string;
   /** Body paragraphs, rendered in order on the post page. */
   content: string[];
+  /** Versioned editorial document. Legacy posts continue to use `content`. */
+  body?: unknown;
+  bodyVersion?: number;
+  revision?: number;
+  publishedAt?: string;
+  coverAssetId?: string;
 }
+
+export type PostSummary = Pick<Post, "slug" | "title" | "date" | "summary" | "tags" | "publishedAt"> & {
+  hasRichBody: boolean;
+  /** posts.updated_at (D1 only) — the sitemap's lastmod. */
+  updatedAt?: string;
+};
 
 // TODO(sarang): write real posts. Each becomes a card on /blog (searchable)
 // and a page at /blog/[slug].

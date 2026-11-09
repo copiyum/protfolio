@@ -1,23 +1,28 @@
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
-export default function useMinuteClock<T>(compute: () => T, deps: readonly unknown[] = []): T {
-  const [state, setState] = useState(compute);
+// One shared minute ticker: fires on each wall-clock minute boundary.
+function subscribeMinute(onTick: () => void) {
+  let timeout: ReturnType<typeof setTimeout>;
+  const schedule = () => {
+    const now = new Date();
+    const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+    timeout = setTimeout(() => {
+      onTick();
+      schedule();
+    }, msToNextMinute);
+  };
+  schedule();
+  return () => clearTimeout(timeout);
+}
 
-  useEffect(() => {
-    let timeout: ReturnType<typeof setTimeout>;
-    const schedule = () => {
-      const now = new Date();
-      const msToNextMinute = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-      timeout = setTimeout(() => {
-        setState(compute());
-        schedule();
-      }, msToNextMinute);
-    };
-    schedule();
-    return () => clearTimeout(timeout);
-    // compute is intentionally caller-scoped; deps controls resubscription.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
+const getMinuteSnapshot = () => Math.floor(Date.now() / 60_000);
+const getServerMinuteSnapshot = () => null;
 
-  return state;
+// Returns null during SSR and hydration, then the computed value on the client,
+// refreshed every minute. Public pages are statically cached, so a server-side
+// time would be both stale and a hydration mismatch (server is UTC, visitors aren't).
+// `compute` is cheap (a couple of Intl calls), so it simply runs per render.
+export default function useMinuteClock<T>(compute: () => T): T | null {
+  const minute = useSyncExternalStore(subscribeMinute, getMinuteSnapshot, getServerMinuteSnapshot);
+  return minute === null ? null : compute();
 }

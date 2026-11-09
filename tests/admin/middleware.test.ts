@@ -24,8 +24,11 @@ describe("security headers", () => {
   it("frame-ancestors self on public", () => {
     const out = applySecurityHeaders(new Response("ok"), "/blog");
     expect(out.headers.get("Content-Security-Policy")).toMatch(/frame-ancestors 'self'/);
-    expect(out.headers.get("Content-Security-Policy")).toMatch(/script-src 'self' 'nonce-[^']+'/);
-    expect(out.headers.get("Content-Security-Policy")?.match(/script-src[^;]+/)?.[0]).not.toContain("'unsafe-inline'");
+    // Public pages are ISR-cached, so no per-request nonce (deliberate tradeoff).
+    expect(out.headers.get("Content-Security-Policy")).toMatch(/script-src 'self' 'unsafe-inline' https:\/\/challenges\.cloudflare\.com(;|$)/);
+    expect(out.headers.get("Content-Security-Policy")).not.toContain("'nonce-");
+    expect(out.headers.get("Content-Security-Policy")?.match(/script-src[^;]+/)?.[0]).not.toContain("'unsafe-eval'");
+    expect(out.headers.get("x-nonce")).toBeNull();
     expect(out.headers.get("Content-Security-Policy")).toMatch(/worker-src 'self' blob:/);
     expect(out.headers.get("X-Frame-Options")).toBe("SAMEORIGIN");
   });

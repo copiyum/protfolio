@@ -2,6 +2,11 @@ name = "pf-admin"
 main = "worker.ts"
 compatibility_date = "2026-07-01"
 compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+# Wrangler's esbuild defaults to keepNames, which injects `__name(fn, "fn")`
+# calls into function bodies. next-themes serializes its theme script with
+# Function.prototype.toString(), so the inline <script> shipped to browsers
+# referenced an undefined `__name` and threw before the theme was applied.
+keep_names = false
 
 [observability]
 
@@ -24,6 +29,26 @@ database_id = "1a95c7c1-e993-41d9-8ee4-e7bbf61e74ef"
 [[r2_buckets]]
 binding = "R2"
 bucket_name = "pf-admin-assets"
+
+# OpenNext ISR cache (open-next.config.ts). Create once before deploying:
+#   npx wrangler r2 bucket create pf-next-inc-cache
+[[r2_buckets]]
+binding = "NEXT_INC_CACHE_R2_BUCKET"
+bucket_name = "pf-next-inc-cache"
+
+# OpenNext revalidation queue + tag cache. Classes are re-exported from
+# worker.ts; Wrangler creates the namespaces on deploy (no manual setup).
+[[durable_objects.bindings]]
+name = "NEXT_CACHE_DO_QUEUE"
+class_name = "DOQueueHandler"
+
+[[durable_objects.bindings]]
+name = "NEXT_TAG_CACHE_DO_SHARDED"
+class_name = "DOShardedTagCache"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["DOQueueHandler", "DOShardedTagCache"]
 
 [images]
 binding = "IMAGES"

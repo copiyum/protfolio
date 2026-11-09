@@ -1,11 +1,10 @@
 import Image from "next/image";
+import ContributionGrid from "./contribution-grid";
+import { LEVEL_FILL, LEVEL_OPACITY } from "./lib/levels";
 import { type ContributionsData, getMonthLabels } from "./lib/get-cached-contributions";
 
-// violet ramp — matches --accent, not GitHub green
-// ponytail: opacity multipliers over one color give a smoother, more visible ramp
-// than mixing foreground-white + violet at low alphas (which washes out on dark bg).
-const LEVEL_BG = "rgb(143,145,224)";
-const LEVEL_OPACITY = [0.06, 0.32, 0.55, 0.78, 1] as const;
+// Self-hosted copy of github.com/<user>.png (was a 302 redirect, unoptimized).
+const GITHUB_AVATAR_SRC = "/assets/github-avatar.webp";
 
 export function GitHubContributions({
   contributions,
@@ -48,31 +47,18 @@ async function GitHubContributionsInner({
         ))}
       </div>
 
-      <div
-        className="grid w-full gap-[2px]"
-        style={{
-          gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gridAutoFlow: "column",
-          gridTemplateRows: "repeat(7, auto)",
-        }}
-      >
-        {Array.from({ length: lead }).map((_, i) => (
-          <span key={`pad-${i}`} className="aspect-square w-full" />
-        ))}
-        {days.map((d) => (
-          <span
-            key={d.date}
-            title={`${d.count} on ${d.date}`}
-            className="aspect-square w-full transition-opacity hover:opacity-80"
-            style={{ backgroundColor: LEVEL_BG, opacity: LEVEL_OPACITY[d.level] }}
-          />
-        ))}
-      </div>
+      <ContributionGrid
+        start={days[0].date}
+        levels={days.map((d) => d.level).join("")}
+        counts={days.map((d) => d.count).join(",")}
+        cols={cols}
+        lead={lead}
+      />
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[color:var(--foreground)]/60">
         <span>
           <strong className="text-[color:var(--foreground)]">
-            {total.toLocaleString()}
+            {total.toLocaleString("en-US")}
           </strong>{" "}
           contributions in the past 365 days
         </span>
@@ -82,7 +68,7 @@ async function GitHubContributionsInner({
             <span
               key={i}
               className="size-[10px]"
-              style={{ backgroundColor: LEVEL_BG, opacity: o }}
+              style={{ backgroundColor: LEVEL_FILL, opacity: o }}
             />
           ))}
           More
@@ -95,14 +81,8 @@ async function GitHubContributionsInner({
         rel="noreferrer"
         className="mt-2 flex items-center gap-2 text-xs text-[color:var(--foreground)]/40 hover:text-[color:var(--accent)]"
       >
-        <Image
-          src={`https://github.com/${githubUser}.png?size=80`}
-          alt=""
-          width={20}
-          height={20}
-          unoptimized
-          className="rounded-full"
-        />
+        {/* 40x40 WebP, <1KB: served as-is, no optimizer round trip needed. */}
+        <Image src={GITHUB_AVATAR_SRC} alt="" width={20} height={20} unoptimized className="rounded-full" />
         @{githubUser}
       </a>
     </div>

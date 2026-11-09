@@ -53,5 +53,12 @@ motion-audits/
 excalidraw.log
 wrangler.t
 
+# Google entity research
+/google_entity_creation/
+/entity-playbook.md
+/results/
+
+# wrangler local secrets (never bundled, never committed)
+.dev.vars*
 # copied from node_modules by scripts/copy-maplibre-worker.mjs
 /public/vendor/maplibre-gl-worker.mjs

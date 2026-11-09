@@ -1,6 +1,6 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { unstable_cache } from "next/cache";
-import type { Post } from "@/data/posts";
+import type { Post, PostSummary } from "@/data/posts";
 import type { Project } from "@/data/projects";
 import type { Experience } from "@/data/experience";
 import type { SocialLink } from "@/data/social-links";
@@ -17,6 +17,11 @@ import {
   type NavItem,
 } from "@/lib/admin/entities";
 import { readProfileSettings } from "@/lib/admin/singletons";
+import {
+  postStringArray,
+  publishedPostFromRow,
+  type PublishedPostRow,
+} from "@/lib/admin/entities/posts";
 import { DEFAULT_PROFILE_SETTINGS, type ProfileSettings } from "@/lib/profile-settings";
 import {
   VISITOR_NOTES_TAG,
@@ -87,9 +92,101 @@ export async function getPosts(): Promise<Post[]> {
   }
 }
 
+function fallbackPostSummaries(): PostSummary[] {
+  return postsPlugin.fallback().map((post) => ({
+    slug: post.slug,
+    title: post.title,
+    date: post.date,
+    summary: post.summary,
+    tags: post.tags,
+    publishedAt: post.publishedAt,
+    hasRichBody: Boolean(post.body),
+  }));
+}
+
+const getPublishedPostSummariesCached = unstable_cache(
+  async (): Promise<PostSummary[]> => {
+    const db = await getPublicDb();
+    const rows = await db.prepare(
+      `SELECT slug, title, date, summary, tags, published_at, updated_at,
+              CASE WHEN body IS NOT NULL AND body != '' THEN 1 ELSE 0 END AS has_rich_body
+       FROM posts WHERE published = 1 ORDER BY date DESC`,
+    ).all<{
+      slug: string;
+      title: string;
+      date: string;
+      summary: string;
+      tags: string;
+      published_at: string | null;
+      updated_at: string | null;
+      has_rich_body: number;
+    }>();
+    return (rows.results ?? []).map((row) => ({
+      slug: row.slug,
+      title: row.title,
+      date: row.date,
+      summary: row.summary,
+      tags: postStringArray(row.tags),
+      publishedAt: row.published_at ?? undefined,
+      updatedAt: row.updated_at ?? undefined,
+      hasRichBody: Boolean(row.has_rich_body),
+    }));
+  },
+  ["public-post-summaries"],
+  { tags: [postsPlugin.tag], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+);
+
+export async function getPublishedPostSummaries(): Promise<PostSummary[]> {
+  try {
+    const posts = await getPublishedPostSummariesCached();
+    return posts.length > 0 ? posts : fallbackPostSummaries();
+  } catch (error) {
+    warnPublicRead("getPublishedPostSummaries", error);
+    return fallbackPostSummaries();
+  }
+}
+
+function getPublishedPostBySlugCached(slug: string) {
+  return unstable_cache(
+    async (): Promise<Post | null> => {
+      const db = await getPublicDb();
+      const row = await db.prepare(
+        "SELECT id, slug, title, date, summary, cover, tags, content, body, body_version, revision, published_at, cover_asset_id FROM posts WHERE published = 1 AND slug = ? LIMIT 1",
+      ).bind(slug).first<PublishedPostRow>();
+      if (row) return publishedPostFromRow(row);
+
+      const anyPublished = await db.prepare("SELECT 1 AS present FROM posts WHERE published = 1 LIMIT 1").first<{ present: number }>();
+      return anyPublished ? null : postsPlugin.fallback().find((post) => post.slug === slug) ?? null;
+    },
+    ["public-post-by-slug", slug],
+    { tags: ["posts", `post:${slug}`], revalidate: PUBLIC_READ_REVALIDATE_SECONDS },
+  );
+}
+
+export async function getPublishedPostBySlug(slug: string): Promise<Post | null> {
+  try {
+    const post = await getPublishedPostBySlugCached(slug)();
+    return post ?? null;
+  } catch (e) {
+    warnPublicRead("getPublishedPostBySlug", e);
+    return postsPlugin.fallback().find((post) => post.slug === slug) ?? null;
+  }
+}
+
+export async function getPublishedPostSlugs(): Promise<string[]> {
+  try {
+    const db = await getPublicDb();
+    const rows = await db.prepare("SELECT slug FROM posts WHERE published = 1 ORDER BY date DESC").all<{ slug: string }>();
+    const slugs = (rows.results ?? []).map((row) => row.slug);
+    return slugs.length > 0 ? slugs : postsPlugin.fallback().map((post) => post.slug);
+  } catch (e) {
+    warnPublicRead("getPublishedPostSlugs", e);
+    return postsPlugin.fallback().map((post) => post.slug);
+  }
+}
+
 export async function getPostBySlug(slug: string): Promise<Post | null> {
-  const posts = await getPosts();
-  return posts.find((post) => post.slug === slug) ?? null;
+  return getPublishedPostBySlug(slug);
 }
 
 const getProjectsCached = unstable_cache(

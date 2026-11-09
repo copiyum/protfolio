@@ -11,8 +11,10 @@ export function Mascot({ frameSrc, lineTop }: MascotProps) {
       {/* Raw <img>, deliberately: this sprite hot-swaps among 3 tiny local frames
           on every keystroke — next/Image's optimizer indirection adds flicker
           risk with no payoff here. */}
+      {/* loading="lazy": without it React's SSR emits a <link rel=preload> for this
+          far-below-the-fold sprite in <head>. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={frameSrc} alt="cat" className={styles.mascot} />
+      <img src={frameSrc} alt="cat" className={styles.mascot} width={92} height={92} loading="lazy" decoding="async" />
     </div>
   );
 }

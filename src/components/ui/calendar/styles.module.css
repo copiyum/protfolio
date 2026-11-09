@@ -4,7 +4,7 @@
   --cell-min-h: 64px;
   --pill-radius: 18px;
   --duration-move: 600ms;
-  --duration-ui: 280ms;
+  --duration-ui: 220ms;
   --easing-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
   --easing-ui: cubic-bezier(.2,.8,.2,1);
 
@@ -33,11 +33,10 @@
   background: #ffffff;
   border: 1px solid rgba(0,0,0,0.08);
   border-radius: 18px;
-  padding: 0.875rem 1rem 1rem;
+  /* Reserve the status-line slot so hover never animates layout. */
+  padding: 1.6rem 1rem 1rem;
   position: relative;
-  /* Ensure this panel forms its own stacking context so backdrop-filter samples within */
   isolation: isolate;
-  transition: padding var(--duration-ui) var(--easing-ui);
 }
 
 :global(.dark) .innerPanel {
@@ -110,8 +109,6 @@
     0 6px 18px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
     inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-  backdrop-filter: blur(18px) saturate(1.7);
-  -webkit-backdrop-filter: blur(18px) saturate(1.7);
   transition:
     transform 400ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 400ms cubic-bezier(0.16, 1, 0.3, 1),
@@ -192,18 +189,17 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  height: 0;
+  height: 1.25rem;
   opacity: 0;
   overflow: hidden;
   color: color-mix(in srgb, var(--foreground), transparent 0%);
   font-size: 0.9rem;
   line-height: 1.25rem;
-  transition: height var(--duration-ui) var(--easing-ui), opacity 200ms ease;
+  transform: translateY(-4px);
+  transition: opacity 180ms ease, transform 180ms var(--easing-ui);
 }
 
-.innerPanel.hasHover .messageBar { height: 1.25rem; opacity: 1; }
-
-.innerPanel.hasHover { padding-top: 1.6rem; }
+.innerPanel.hasHover .messageBar { opacity: 1; transform: translateY(0); }
 
 .messageRow {
   display: flex;
@@ -211,13 +207,14 @@
   align-items: center;
   justify-content: flex-start;
   color: #8F91E0;
-  height: 0;
+  height: 1.25rem;
   opacity: 0;
   overflow: hidden;
-  transition: height 220ms ease, opacity 220ms ease;
+  transform: translateY(-4px);
+  transition: opacity 180ms ease, transform 180ms var(--easing-ui);
 }
 
-.innerPanel.hasHover .messageRow { height: 1.25rem; opacity: 1; }
+.innerPanel.hasHover .messageRow { opacity: 1; transform: translateY(0); }
 
 .statusDot {
   width: 10px;

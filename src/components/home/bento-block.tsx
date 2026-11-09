@@ -179,17 +179,18 @@ const ClockCell = memo(function ClockCell({
 	timezone: string;
 	timezoneLabel: string;
 }) {
-	const { time, offsetLabel } = useTimezoneClock(timezone);
+	// null until mounted: the time is client-only so cached HTML never shows a stale clock.
+	const clock = useTimezoneClock(timezone);
 
 	return (
 		<GlowCard className="group">
 			<CellLabel>Local time</CellLabel>
-			<CellValue className="tabular-nums" suppressHydrationWarning>
-				{time}
+			<CellValue className="tabular-nums">
+				{clock?.time ?? <span className="opacity-30">--:--</span>}
 			</CellValue>
-			<CellSub suppressHydrationWarning>
+			<CellSub>
 				<span className="group-hover:hidden">{timezoneLabel}</span>
-				<span className="hidden group-hover:inline">{offsetLabel}</span>
+				<span className="hidden group-hover:inline">{clock?.offsetLabel ?? timezoneLabel}</span>
 			</CellSub>
 		</GlowCard>
 	);
@@ -243,6 +244,11 @@ export default function BentoBlock({ cells, profile }: { cells: BentoCell[]; pro
 		const fetchNp = async () => {
 			try {
 				const res = await fetch("/api/now-playing");
+				if (!res.ok) {
+					// Rate-limited / unavailable: show the idle state instead of a stuck skeleton.
+					setNp((prev) => prev ?? { playing: false, title: "", artist: "", album: "", artUrl: null, accentColor: "" });
+					return;
+				}
 				const data = (await res.json()) as NowPlayingData;
 				setNp(data);
 			} catch {

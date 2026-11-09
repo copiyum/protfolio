@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { OG_IMAGE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site-metadata";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,9 +14,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sarang",
-  description:
-    "Software developer focused on clean design and engaging, detail-obsessed user experiences.",
+  metadataBase: new URL(SITE_URL),
+  title: { default: SITE_NAME, template: `%s — ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    locale: "en_US",
+    images: [OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE.url],
+  },
 };
 
 // Inline only the initial paint-critical theme tokens so the document never

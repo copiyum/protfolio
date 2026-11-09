@@ -2,7 +2,9 @@ import VisitorsBoard from "@/components/visitors/VisitorsBoard";
 import AnimatedStars from "@/components/ui/animated-stars";
 import { getTurnstileSiteKey } from "@/lib/admin/runtime-env";
 import { getVisitorNotes } from "@/lib/admin/read";
+import type { Metadata } from "next";
 
+export const metadata: Metadata = { title: "Visitors" };
 export const revalidate = 300;
 
 export default async function VisitorsPage() {
