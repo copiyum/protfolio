@@ -52,3 +52,6 @@ motion-audits/
 .commandcode/
 excalidraw.log
 wrangler.t
+
+# copied from node_modules by scripts/copy-maplibre-worker.mjs
+/public/vendor/maplibre-gl-worker.mjs
