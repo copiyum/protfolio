@@ -1,11 +1,15 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import maplibregl, { Map } from "maplibre-gl";
+import { Map, getVersion, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "next-themes";
 import styles from "./map-widget.module.css";
 import Image from "next/image";
 import useReducedMotion from "@/hooks/use-reduced-motion";
+
+// maplibre v6 looks for its worker next to its own (bundled, hashed) chunk,
+// where it doesn't exist. scripts/copy-maplibre-worker.mjs serves it from /vendor.
+setWorkerUrl(`/vendor/maplibre-gl-worker.mjs?v=${getVersion()}`);
 
 // Map placement/tuning — single-use, so it lives with its only consumer.
 const DEFAULT_CENTER: [number, number] = [77.5946, 12.9716];
@@ -109,7 +113,7 @@ export default function MapWidget({
     const isDark = document.documentElement.classList.contains("dark");
     appliedDark.current = isDark;
 
-    const map = new maplibregl.Map({
+    const map = new Map({
       container: ref.current,
       style: styleUrl(isDark),
       center: mapCenter,
