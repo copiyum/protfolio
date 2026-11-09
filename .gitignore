@@ -60,3 +60,5 @@ wrangler.t
 
 # wrangler local secrets (never bundled, never committed)
 .dev.vars*
+# copied from node_modules by scripts/copy-maplibre-worker.mjs
+/public/vendor/maplibre-gl-worker.mjs

@@ -29,7 +29,13 @@ const AVIF_QUALITY = 42;
 async function main() {
   const lng = Number(process.argv[2] ?? DEFAULT_CENTER[0]);
   const lat = Number(process.argv[3] ?? DEFAULT_CENTER[1]);
-  const maplibreJs = await readFile(path.join(ROOT, "node_modules/maplibre-gl/dist/maplibre-gl.js"), "utf8");
+  // maplibre v6 is ESM-only; its main module loads maplibre-gl-worker.mjs from
+  // next to itself, so serve both from the fake origin.
+  const dist = path.join(ROOT, "node_modules/maplibre-gl/dist");
+  const maplibreFiles: Record<string, string> = {
+    "/maplibre-gl.mjs": await readFile(path.join(dist, "maplibre-gl.mjs"), "utf8"),
+    "/maplibre-gl-worker.mjs": await readFile(path.join(dist, "maplibre-gl-worker.mjs"), "utf8"),
+  };
 
   const browser = await chromium.launch({ args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader"] });
   const page = await browser.newPage({
@@ -38,17 +44,18 @@ async function main() {
   });
   await page.route("https://capture.local/**", async (route) => {
     const url = new URL(route.request().url());
-    if (url.pathname === "/maplibre-gl.js") {
-      return route.fulfill({ body: maplibreJs, contentType: "text/javascript" });
-    }
+    const file = maplibreFiles[url.pathname];
+    if (file) return route.fulfill({ body: file, contentType: "text/javascript" });
     return route.fulfill({
       contentType: "text/html",
       body: `<!doctype html><html><body style="margin:0">
         <div id="map" style="width:${STATIC_MAP_WIDTH}px;height:${STATIC_MAP_HEIGHT}px"></div>
-        <script src="/maplibre-gl.js"></script></body></html>`,
+        <script type="module">import * as m from "/maplibre-gl.mjs"; window.maplibregl = m;</script>
+        </body></html>`,
     });
   });
   await page.goto("https://capture.local/");
+  await page.waitForFunction(() => "maplibregl" in window);
   await mkdir(OUT_DIR, { recursive: true });
 
   for (const theme of ["light", "dark"] as const) {

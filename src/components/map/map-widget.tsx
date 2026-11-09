@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef } from "react";
-import maplibregl, { Map } from "maplibre-gl";
+import { Map, getVersion, setWorkerUrl } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useTheme } from "next-themes";
 import styles from "./map-widget.module.css";
@@ -11,6 +11,10 @@ import {
   MAP_ZOOM,
   mapStyleUrl as styleUrl,
 } from "./map-config";
+
+// maplibre v6 looks for its worker next to its own (bundled, hashed) chunk,
+// where it doesn't exist. scripts/copy-maplibre-worker.mjs serves it from /vendor.
+setWorkerUrl(`/vendor/maplibre-gl-worker.mjs?v=${getVersion()}`);
 
 const BUILDING_ZOOM_MIN = 15;
 const BUILDING_HEIGHT_FACTOR = 0.5;
@@ -108,7 +112,7 @@ export default function MapWidget({
     const isDark = document.documentElement.classList.contains("dark");
     appliedDark.current = isDark;
 
-    const map = new maplibregl.Map({
+    const map = new Map({
       container: ref.current,
       style: styleUrl(isDark),
       center: mapCenter,
@@ -131,8 +135,8 @@ export default function MapWidget({
 
     // Some OpenFreeMap styles reference sprite images they don't ship (e.g.
     // "wood-pattern" in dark). Register a transparent pixel instead of warning.
-    map.on("styleimagemissing", (e) => {
-      if (!map.hasImage(e.id)) map.addImage(e.id, { width: 1, height: 1, data: new Uint8Array(4) });
+    map.setMissingStyleImageResolver((id) => {
+      if (!map.hasImage(id)) map.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
     });
 
     map.on("load", () => {
